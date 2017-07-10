@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -13,12 +14,14 @@ import (
 )
 
 var (
-	fileName = flag.String("filename", "hello", "name of file in file system")
-	fsName = flag.String("fsname", "hello", "Name of file system")
-	subType = flag.String("subtype", "hellofs", "subtype of file system")
-	volumeName = flag.String("volumeName", "Hello world!", "volumeName of file system")
+	data []byte
+	backingStore = flag.String("store", "store", "name of file holding all the data")
+	fileName = flag.String("filename", "data", "name of file in file system")
+	fsName = flag.String("fsname", "pstore", "Name of file system")
+	subType = flag.String("subtype", "pstorefs", "subtype of file system")
+	volumeName = flag.String("volumeName", "Persistent Store", "volumeName of file system")
 )
-	
+
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -35,6 +38,17 @@ func main() {
 		os.Exit(2)
 	}
 	mountpoint := flag.Arg(0)
+
+	// First, make sure we can operate on the data
+	f, err := os.OpenFile(*backingStore, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	data, err = ioutil.ReadAll(f)
+	if err != nil {
+		log.Fatalf("Reading %v: %v", f, err)
+	}
 
 	c, err := fuse.Mount(
 		mountpoint,
@@ -93,15 +107,13 @@ func (Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 // File implements both Node and Handle for the hello file.
 type File struct{}
 
-const greeting = "hello, world\n"
-
 func (File) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 2
 	a.Mode = 0444
-	a.Size = uint64(len(greeting))
+	a.Size = uint64(len(data))
 	return nil
 }
 
 func (File) ReadAll(ctx context.Context) ([]byte, error) {
-	return []byte(greeting), nil
+	return data, nil
 }
