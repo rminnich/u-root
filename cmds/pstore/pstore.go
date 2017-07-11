@@ -124,7 +124,6 @@ func (File) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (f File) ReadAll(ctx context.Context) ([]byte, error) {
-	log.Printf("REadall!")
 	rw.RLock()
 	defer rw.RUnlock()
 	var a fuse.Attr
@@ -140,7 +139,6 @@ var _ fs.NodeOpener = (*File)(nil)
 
 func (f File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	resp.Flags |= fuse.OpenKeepCache
-	log.Printf("open f %v re %v resp %v", f, req, resp)
 	return f, nil
 }
 
@@ -163,7 +161,6 @@ func (f File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadRe
 var _ fs.HandleWriter = (*File)(nil)
 
 func (f File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-	log.Printf("yeah righ req %v resp %v", req, resp)
 	f.d.Write(req.Data)
 	return nil
 }
@@ -171,7 +168,6 @@ func (f File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Writ
 var _ fs.HandleReleaser = (*File)(nil)
 
 func (f File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
-	log.Printf("rel3est; f is %v", f)
 	rw.Lock()
 	var a fuse.Attr
 	if err := f.Attr(ctx, &a); err != nil {
