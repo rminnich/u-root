@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -98,7 +99,7 @@ func (Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 
 func (Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	if name == *fileName {
-		return File{}, nil
+		return File{d: &bytes.Buffer{}}, nil
 	}
 	return nil, fuse.ENOENT
 }
@@ -112,7 +113,7 @@ func (Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 // File implements both Node and Handle for the hello file.
-type File struct{}
+type File struct{d *bytes.Buffer}
 
 func (File) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 2
@@ -147,13 +148,14 @@ var _ fs.HandleWriter = (*File)(nil)
 
 func (f File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
 	log.Printf("yeah righ req %v resp %v", req, resp)
+	f.d.Write(req.Data)
 	return nil
 }
 
 var _ fs.HandleReleaser = (*File)(nil)
 
 func (f File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
-	log.Printf("forget it")
+	log.Printf("rel3est; f is %v", f)
 	return nil
 }
 
