@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	data []byte
+	store *os.File
+	rw sync.RWMutex
 	backingStore = flag.String("store", "store", "name of file holding all the data")
 	fileName = flag.String("filename", "data", "name of file in file system")
 	fsName = flag.String("fsname", "pstore", "Name of file system")
@@ -48,14 +49,10 @@ func main() {
 	mountpoint := flag.Arg(0)
 
 	// First, make sure we can operate on the data
-	f, err := os.OpenFile(*backingStore, os.O_RDWR, 0644)
+	var err error
+	store, err = os.OpenFile(*backingStore, os.O_RDWR, 0644)
 	if err != nil {
 		log.Fatalf("%v", err)
-	}
-
-	data, err = ioutil.ReadAll(f)
-	if err != nil {
-		log.Fatalf("Reading %v: %v", f, err)
 	}
 
 	c, err := fuse.Mount(
@@ -118,13 +115,25 @@ type File struct{d *bytes.Buffer}
 func (File) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 2
 	a.Mode = 0644
-	a.Size = uint64(len(data))
+	end, err := store.Seek(0, 2)
+	if err != nil {
+		return err
+	}
+	a.Size = uint64(end)
 	return nil
 }
 
-func (File) ReadAll(ctx context.Context) ([]byte, error) {
+func (f File) ReadAll(ctx context.Context) ([]byte, error) {
 	log.Printf("REadall!")
-	return data, nil
+	rw.RLock()
+	defer rw.RUnlock()
+	var a fuse.Attr
+	if err := f.Attr(ctx, &a); err != nil {
+		return nil, err
+	}
+	d := make([]byte, a.Size)
+	_, err := store.ReadAt(d, 0)
+	return d, err
 }
 
 var _ fs.NodeOpener = (*File)(nil)
@@ -140,8 +149,15 @@ var _ fs.Handle = (*File)(nil)
 var _ fs.HandleReader = (*File)(nil)
 
 func (f File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
-	fuseutil.HandleRead(req, resp, data)
-	return nil
+	rw.RLock()
+	defer rw.RUnlock()
+	var data = make([]byte, req.Size)
+	_, err := store.Read(data)
+	if err != nil {
+		data = nil
+	}
+	fuseutil.HandleRead(req, resp, nil)
+	return err
 }
 
 var _ fs.HandleWriter = (*File)(nil)
@@ -156,6 +172,13 @@ var _ fs.HandleReleaser = (*File)(nil)
 
 func (f File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	log.Printf("rel3est; f is %v", f)
-	return nil
+	rw.Lock()
+	var a fuse.Attr
+	if err := f.Attr(ctx, &a); err != nil {
+		return err
+	}
+	defer rw.Unlock()
+	_, err := store.WriteAt(f.d.Bytes(), int64(a.Size))
+	return err
 }
 
