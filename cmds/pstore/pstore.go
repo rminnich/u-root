@@ -16,6 +16,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"bazil.org/fuse/fuseutil"
+        _ "bazil.org/fuse/fs/fstestutil"
 	"golang.org/x/net/context"
 )
 
@@ -121,14 +122,15 @@ func (File) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (File) ReadAll(ctx context.Context) ([]byte, error) {
+	log.Printf("REadall!")
 	return data, nil
 }
 
 var _ fs.NodeOpener = (*File)(nil)
 
-func (f *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
+func (f File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	resp.Flags |= fuse.OpenKeepCache
-	log.Printf("open f %v re %v resp %v", *f, req, resp)
+	log.Printf("open f %v re %v resp %v", f, req, resp)
 	return f, nil
 }
 
@@ -136,22 +138,22 @@ var _ fs.Handle = (*File)(nil)
 
 var _ fs.HandleReader = (*File)(nil)
 
-func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
+func (f File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	fuseutil.HandleRead(req, resp, data)
 	return nil
 }
 
 var _ fs.HandleWriter = (*File)(nil)
 
-func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
+func (f File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
 	log.Printf("yeah righ req %v resp %v", req, resp)
 	return nil
 }
 
-var _ fs.NodeForgetter = (*File)(nil)
+var _ fs.HandleReleaser = (*File)(nil)
 
-func (f *File) Forget() {
+func (f File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	log.Printf("forget it")
-	return
+	return nil
 }
 
