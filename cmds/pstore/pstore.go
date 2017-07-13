@@ -79,18 +79,19 @@ func main() {
 }
 
 // FS implements the hello world file system.
+// It has only one file, not even a directory.
 type FS struct{}
 
 func (FS) Root() (fs.Node, error) {
-	return Dir{}, nil
+	return File{d: &bytes.Buffer{}}, nil
 }
 
 // Dir implements both Node and Handle for the root directory.
 type Dir struct{}
 
 func (Dir) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 1
-	a.Mode = os.ModeDir | 0555
+	a.Inode = 2
+	a.Mode = 0666
 	return nil
 }
 
