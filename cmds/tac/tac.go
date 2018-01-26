@@ -15,6 +15,29 @@ type ReadAtSeeker interface {
 	io.Seeker
 }
 
+type byteRev struct {
+	io.ReaderAt
+	o int64
+}
+
+type rever func(io.Reader, io.Writer) error 
+
+func (r*byteRev) Read(b[]byte) (int64, error) {
+	o := r.o - int64(len(b))
+	if o < 0 {
+		o = 0
+	}
+
+	amt, err := r.ReadAt(b[:r.o-o], o)
+	if amt > 0 {
+		r.o -= int64(amt)
+	}
+	return int64(amt), err
+}
+
+func revBlock(r io.Reader, w io.Writer) error {
+
+
 func tac(r ReadAtSeeker, w io.Writer) {
 	var b [ReadSize]byte
 	// Get current EOF. While the file may be growing, there's
@@ -62,6 +85,9 @@ func tac(r ReadAtSeeker, w io.Writer) {
 	}
 	close(c)
 	wg.Wait()
+}
+
+func tac(r io.Reader, w io.Writer, f ...rever) {
 }
 
 func main() {
