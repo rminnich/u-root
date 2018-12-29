@@ -137,6 +137,7 @@ func session(chans <-chan ssh.NewChannel) {
 		// protocol intended. In the case of a shell, the type is
 		// "session" and ServerShell may be used to present a simple
 		// terminal interface.
+		dprintf("newchannel type %s", newChannel.ChannelType())
 		if newChannel.ChannelType() != "session" {
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
@@ -148,8 +149,7 @@ func session(chans <-chan ssh.NewChannel) {
 		}
 
 		// Sessions have out-of-band requests such as "shell",
-		// "pty-req" and "env".  Here we handle only the
-		// "shell" request.
+		// "pty-req" and "env".
 		go func(in <-chan *ssh.Request) {
 			for req := range in {
 				dprintf("Request %v", req.Type)
@@ -170,13 +170,25 @@ func session(chans <-chan ssh.NewChannel) {
 				case "pty-req":
 					p, err = newPTY(req.Payload)
 					req.Reply(err == nil, nil)
+				case "env":
+					req.Reply(true, nil)
+
 				default:
-					log.Printf("Not handling req %v %q", req, string(req.Payload))
+					log.Printf("Not handling req %s %v(%T) %q", req.Type, req, req, string(req.Payload))
 					req.Reply(false, nil)
 				}
 			}
 		}(requests)
 
+	}
+}
+
+func requests(in <-chan *ssh.Request) {
+	for req := range in {
+		dprintf("Discarding %v", req)
+		if req.WantReply {
+			req.Reply(false, nil)
+		}
 	}
 }
 
@@ -256,7 +268,7 @@ func main() {
 		log.Printf("%v logged in with key %s", conn.RemoteAddr(), conn.Permissions.Extensions["pubkey-fp"])
 
 		// The incoming Request channel must be serviced.
-		go ssh.DiscardRequests(reqs)
+		go requests(reqs)
 
 		go session(chans)
 	}
