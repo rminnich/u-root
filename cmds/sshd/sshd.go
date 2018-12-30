@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -35,17 +36,26 @@ type (
 	exitStatusReq struct {
 		ExitStatus uint32
 	}
+	forwardReq struct {
+		Host string
+		Port uint32
+	}
+	forward struct {
+		addr string
+		ctx  context.Context
+	}
 )
 
 var (
-	shells  = [...]string{"bash", "zsh", "elvish"}
-	shell   = "/bin/sh"
-	debug   = flag.Bool("d", false, "Enable debug prints")
-	keys    = flag.String("keys", "authorized_keys", "Path to the authorized_keys file")
-	privkey = flag.String("privatekey", "id_rsa", "Path of private key")
-	ip      = flag.String("ip", "0.0.0.0", "ip address to listen on")
-	port    = flag.String("port", "2022", "port to listen on")
-	dprintf = func(string, ...interface{}) {}
+	shells   = [...]string{"bash", "zsh", "elvish"}
+	shell    = "/bin/sh"
+	debug    = flag.Bool("d", false, "Enable debug prints")
+	keys     = flag.String("keys", "authorized_keys", "Path to the authorized_keys file")
+	privkey  = flag.String("privatekey", "id_rsa", "Path of private key")
+	ip       = flag.String("ip", "0.0.0.0", "ip address to listen on")
+	port     = flag.String("port", "2022", "port to listen on")
+	dprintf  = func(string, ...interface{}) {}
+	forwards = map[string]*forward{}
 )
 
 // start a command
@@ -183,11 +193,35 @@ func session(chans <-chan ssh.NewChannel) {
 	}
 }
 
+func startForward(f *forwardReq) error {
+	n := fmt.Sprintf("%s:%d", f.Host, f.Port)
+	if _, ok := forwards[n]; ok {
+		return fmt.Errorf("%d: already forwarding", n)
+	}
+	nf := &forward{addr: n}
+
+	forwards[n] = nf
+	return nil
+}
 func requests(in <-chan *ssh.Request) {
+	// The key difference here is that we serialize processing the requests.
+	// We kind of have to, since some requests (stop forwarding)
+	// won't end well if they are done in parallel with others
+	// (i.e. start forwarding). There is a serialization assumption
+	// on these requests afaict.
+	var err error
 	for req := range in {
-		dprintf("Discarding %v", req)
+		switch req.Type {
+		case "tcpip-forward":
+			f := &forwardReq{}
+			if err = ssh.Unmarshal(req.Payload, f); err != nil {
+				log.Printf("sshd: %v", err)
+				break
+			}
+			err = startForward(f)
+		}
 		if req.WantReply {
-			req.Reply(false, nil)
+			req.Reply(err == nil, []byte(fmt.Sprintf("%v", err)))
 		}
 	}
 }
