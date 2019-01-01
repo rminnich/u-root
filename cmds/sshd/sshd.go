@@ -36,13 +36,19 @@ type (
 	exitStatusReq struct {
 		ExitStatus uint32
 	}
-	forwardReq struct {
+	// forward has all we need to know about a forward,
+	// along with the context we use to end it.
+	// The goroutine itself manages the fd. It must be done
+	// this way to avoid A-B-A style races on the fd itself, i.e.
+	// the thing that manages forward requests should not also manage
+	// the fd, since fd #s are reused in Unix.
+	forward struct {
 		Host string
 		Port uint32
-	}
-	forward struct {
-		addr string
-		ctx  context.Context
+
+		r *ssh.Request
+		addr   string
+		cancel context.CancelFunc
 	}
 )
 
@@ -193,16 +199,52 @@ func session(chans <-chan ssh.NewChannel) {
 	}
 }
 
-func startForward(f *forwardReq) error {
+func runForward(ctx context.Context, f *forward) {
+	var lc = &net.ListenConfig{}
+	// Create the socked and do an accept. Run until cancelled or
+	// the socket dies. then do another accept.
+	ln, err := lc.Listen(ctx, "tcp", f.addr)
+	if err != nil {
+		log.Printf("%v", err)
+	}
+	dprintf("Listening on", ln.Addr())
+
+	for {
+		c, err := ln.Accept()
+		// We'll bail if there is an error.
+		if err != nil {
+			log.Printf("Accept %v: %v", ln, err)
+			return
+		}
+		f.r.Reply(true, nil)
+		dprintf("processing on %v", c)
+		// Now let the other end know we're here.
+		go func(){
+			io.Copy(f.r, c)
+		}()
+		go func() {
+			io.Copy(c, f.r)
+		}()
+	}
+}
+func startForward(req *ssh.Request) {
+	f := &forward{r: req,}
+	if err := ssh.Unmarshal(req.Payload, f); err != nil {
+		req.Reply(false, []byte(fmt.Sprintf("%v", err)))
+	}
 	n := fmt.Sprintf("%s:%d", f.Host, f.Port)
 	if _, ok := forwards[n]; ok {
-		return fmt.Errorf("%d: already forwarding", n)
+		req.Reply(false, []byte(fmt.Sprintf("%d: already forwarding", n)))
+		return
 	}
-	nf := &forward{addr: n}
-
+	f.addr = n
+	ctx, cancel := context.WithCancel(context.Background())
+	nf := &forward{addr: n, cancel: cancel}
 	forwards[n] = nf
-	return nil
+	go runForward(ctx, f)
+	return
 }
+
 func requests(in <-chan *ssh.Request) {
 	// The key difference here is that we serialize processing the requests.
 	// We kind of have to, since some requests (stop forwarding)
@@ -210,18 +252,19 @@ func requests(in <-chan *ssh.Request) {
 	// (i.e. start forwarding). There is a serialization assumption
 	// on these requests afaict.
 	var err error
+	var res []byte
 	for req := range in {
 		switch req.Type {
 		case "tcpip-forward":
-			f := &forwardReq{}
-			if err = ssh.Unmarshal(req.Payload, f); err != nil {
-				log.Printf("sshd: %v", err)
-				break
-			}
-			err = startForward(f)
+			startForward(req)
+			continue
 		}
 		if req.WantReply {
-			req.Reply(err == nil, []byte(fmt.Sprintf("%v", err)))
+			if err != nil {
+				req.Reply(false, []byte(fmt.Sprintf("%v", err)))
+				continue
+			}
+			req.Reply(true, res)
 		}
 	}
 }
