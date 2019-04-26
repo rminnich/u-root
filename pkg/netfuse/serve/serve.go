@@ -6,22 +6,20 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
-	"io"
 	"log"
+	"net"
+	"net/rpc"
 	"reflect"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
-)
-
-import (
 	"bytes"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fuseutil"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -339,30 +337,71 @@ type Config struct {
 	WithContext func(ctx context.Context, req fuse.Request) context.Context
 }
 
-// New returns a new FUSE server ready to serve this kernel FUSE
+type NetFuseServer struct {
+	Server *Server
+}
+
+// New returns a new NetFuseServer ready to serve this kernel FUSE
 // connection.
 //
 // Config may be nil.
-func New(conn *fuse.Conn, config *Config) *Server {
+func New(fam, addr string, config ...*Config) (*NetFuseServer, error) {
 	s := &Server{
-		conn:         conn,
+		Addr:         addr,
+		Server:       rpc.NewServer(),
 		req:          map[fuse.RequestID]*serveRequest{},
 		nodeRef:      map[Node]fuse.NodeID{},
 		dynamicInode: GenerateDynamicInode,
 	}
-	if config != nil {
-		s.debug = config.Debug
-		s.context = config.WithContext
+	for _, c := range config {
+		s.debug = c.Debug
+		s.context = c.WithContext
 	}
 	if s.debug == nil {
 		s.debug = fuse.Debug
 	}
-	return s
+	log.Printf("Serve and protect")
+	ln, err := net.Listen(fam, addr)
+	if err != nil {
+		log.Print(err)
+		return nil, err
+	}
+	s.Listener = ln
+	nfs := &NetFuseServer{Server: s}
+	log.Printf("Start the RPC server")
+	if err := rpc.Register(nfs); err != nil {
+		log.Printf("register failed: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Listening on %v at %v", ln.Addr(), time.Now())
+	return nfs, nil
+}
+
+func (s *Server) Start() error {
+	if l, ok := s.Listener.(*net.TCPListener); ok {
+		if err := l.SetDeadline(time.Now().Add(3 * time.Minute)); err != nil {
+			return err
+		}
+	}
+	c, err := s.Listener.Accept()
+	if err != nil {
+		log.Printf("Listen failed: %v at %v", err, time.Now())
+		log.Print(err)
+		return err
+	}
+	s.Conn = c
+	log.Printf("Accepted %v", c)
+	return nil
 }
 
 type Server struct {
+	Addr string
+	Port string
 	// set in New
-	conn    *fuse.Conn
+	net.Listener
+	*rpc.Server
+	net.Conn
 	debug   func(msg interface{})
 	context func(ctx context.Context, req fuse.Request) context.Context
 
@@ -384,56 +423,71 @@ type Server struct {
 	wg sync.WaitGroup
 }
 
+type NetServer struct {
+	fs      FS
+	debug   func(msg interface{})
+	context func(ctx context.Context, req fuse.Request) context.Context
+	// state, protected by meta
+	meta       sync.Mutex
+	req        map[fuse.RequestID]*serveRequest
+	node       []*serveNode
+	nodeRef    map[Node]fuse.NodeID
+	handle     []*serveHandle
+	freeNode   []fuse.NodeID
+	freeHandle []fuse.HandleID
+	nodeGen    uint64
+}
+
 // Serve serves the FUSE connection by making calls to the methods
 // of fs and the Nodes and Handles it makes available.  It returns only
 // when the connection has been closed or an unexpected error occurs.
-func (s *Server) Serve(fs FS) error {
-	defer s.wg.Wait() // Wait for worker goroutines to complete before return
+// func (s *Server) Serve(fs FS) error {
+// 	defer s.wg.Wait() // Wait for worker goroutines to complete before return
 
-	s.fs = fs
-	if dyn, ok := fs.(FSInodeGenerator); ok {
-		s.dynamicInode = dyn.GenerateInode
-	}
+// 	s.fs = fs
+// 	if dyn, ok := fs.(FSInodeGenerator); ok {
+// 		s.dynamicInode = dyn.GenerateInode
+// 	}
 
-	root, err := fs.Root()
-	if err != nil {
-		return fmt.Errorf("cannot obtain root node: %v", err)
-	}
-	// Recognize the root node if it's ever returned from Lookup,
-	// passed to Invalidate, etc.
-	s.nodeRef[root] = 1
-	s.node = append(s.node, nil, &serveNode{
-		inode:      1,
-		generation: s.nodeGen,
-		node:       root,
-		refs:       1,
-	})
-	s.handle = append(s.handle, nil)
+// 	root, err := fs.Root()
+// 	if err != nil {
+// 		return fmt.Errorf("cannot obtain root node: %v", err)
+// 	}
+// 	// Recognize the root node if it's ever returned from Lookup,
+// 	// passed to Invalidate, etc.
+// 	s.nodeRef[root] = 1
+// 	s.node = append(s.node, nil, &serveNode{
+// 		inode:      1,
+// 		generation: s.nodeGen,
+// 		node:       root,
+// 		refs:       1,
+// 	})
+// 	s.handle = append(s.handle, nil)
 
-	for {
-		req, err := s.conn.ReadRequest()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
+// 	for {
+// 		req, err := s.conn.ReadRequest()
+// 		if err != nil {
+// 			if err == io.EOF {
+// 				break
+// 			}
+// 			return err
+// 		}
 
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
-			s.serve(req)
-		}()
-	}
-	return nil
-}
+// 		s.wg.Add(1)
+// 		go func() {
+// 			defer s.wg.Done()
+// 			s.serve(req)
+// 		}()
+// 	}
+// 	return nil
+// }
 
-// Serve serves a FUSE connection with the default settings. See
-// Server.Serve.
-func Serve(c *fuse.Conn, fs FS) error {
-	server := New(c, nil)
-	return server.Serve(fs)
-}
+// // Serve serves a FUSE connection with the default settings. See
+// // Server.Serve.
+// func Serve(c *net.Conn, fs FS) error {
+// 	server := New(c, nil)
+// 	return server.Serve(fs)
+// }
 
 type nothing struct{}
 
@@ -901,6 +955,12 @@ func (c *Server) serve(r fuse.Request) {
 
 	// disarm runtime.Goexit protection
 	responded = true
+}
+
+// func (t *T) MethodName(argType T1, replyType *T2) error
+
+func (n *NetFuseServer) NetStatfs(a fuse.StatfsRequest, r *fuse.StatfsResponse) error {
+	return fuse.ENOSYS
 }
 
 // handleRequest will either a) call done(s) and r.Respond(s) OR b) return an error.
@@ -1445,16 +1505,17 @@ func (s *Server) invalidateNode(node Node, off int64, size int64) error {
 	// Delay logging until after we can record the error too. We
 	// consider a /dev/fuse write to be instantaneous enough to not
 	// need separate before and after messages.
-	err := s.conn.InvalidateNode(id, off, size)
-	s.debug(notification{
-		Op:   "InvalidateNode",
-		Node: id,
-		Out: invalidateNodeDetail{
-			Off:  off,
-			Size: size,
-		},
-		Err: errstr(err),
-	})
+	// err := s.conn.InvalidateNode(id, off, size)
+	// s.debug(notification{
+	// 	Op:   "InvalidateNode",
+	// 	Node: id,
+	// 	Out: invalidateNodeDetail{
+	// 		Off:  off,
+	// 		Size: size,
+	// 	},
+	// 	Err: errstr(err),
+	// })
+	var err error
 	return err
 }
 
@@ -1517,15 +1578,16 @@ func (s *Server) InvalidateEntry(parent Node, name string) error {
 		// able to send this message; it's not cached.
 		return fuse.ErrNotCached
 	}
-	err := s.conn.InvalidateEntry(id, name)
-	s.debug(notification{
-		Op:   "InvalidateEntry",
-		Node: id,
-		Out: invalidateEntryDetail{
-			Name: name,
-		},
-		Err: errstr(err),
-	})
+	// err := s.conn.InvalidateEntry(id, name)
+	// s.debug(notification{
+	// 	Op:   "InvalidateEntry",
+	// 	Node: id,
+	// 	Out: invalidateEntryDetail{
+	// 		Name: name,
+	// 	},
+	// 	Err: errstr(err),
+	// })
+	var err error
 	return err
 }
 
