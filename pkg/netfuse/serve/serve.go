@@ -347,7 +347,7 @@ type NetFuseServer struct {
 // Config may be nil.
 func New(fam, addr string, config ...*Config) (*NetFuseServer, error) {
 	s := &Server{
-		Addr:         addr,
+		Address:      addr,
 		Server:       rpc.NewServer(),
 		req:          map[fuse.RequestID]*serveRequest{},
 		nodeRef:      map[Node]fuse.NodeID{},
@@ -369,7 +369,7 @@ func New(fam, addr string, config ...*Config) (*NetFuseServer, error) {
 	s.Listener = ln
 	nfs := &NetFuseServer{Server: s}
 	log.Printf("Start the RPC server")
-	if err := rpc.Register(nfs); err != nil {
+	if err := s.Server.Register(nfs); err != nil {
 		log.Printf("register failed: %v", err)
 		return nil, err
 	}
@@ -378,26 +378,36 @@ func New(fam, addr string, config ...*Config) (*NetFuseServer, error) {
 	return nfs, nil
 }
 
-func (s *Server) Start() error {
-	if l, ok := s.Listener.(*net.TCPListener); ok {
+func (s *NetFuseServer) Start() error {
+	if l, ok := s.Server.Listener.(*net.TCPListener); ok {
 		if err := l.SetDeadline(time.Now().Add(3 * time.Minute)); err != nil {
 			return err
 		}
 	}
-	c, err := s.Listener.Accept()
+	c, err := s.Server.Listener.Accept()
 	if err != nil {
 		log.Printf("Listen failed: %v at %v", err, time.Now())
 		log.Print(err)
 		return err
 	}
-	s.Conn = c
+	s.Server.Conn = c
 	log.Printf("Accepted %v", c)
 	return nil
 }
 
+func (s *Server) Close() error {
+	return nil
+}
+
+func (s *NetFuseServer) Run() error {
+	log.Printf("Serve and protect")
+	s.Server.ServeConn(s.Server)
+	log.Printf("And uinit is all done.")
+	return nil
+}
+
 type Server struct {
-	Addr string
-	Port string
+	Address string
 	// set in New
 	net.Listener
 	*rpc.Server
@@ -957,10 +967,8 @@ func (c *Server) serve(r fuse.Request) {
 	responded = true
 }
 
-// func (t *T) MethodName(argType T1, replyType *T2) error
-
-func (n *NetFuseServer) NetStatfs(a fuse.StatfsRequest, r *fuse.StatfsResponse) error {
-	return fuse.ENOSYS
+func (n *NetFuseServer) Statfs(a fuse.StatfsRequest, r *fuse.StatfsResponse) error {
+	return nil
 }
 
 // handleRequest will either a) call done(s) and r.Respond(s) OR b) return an error.
