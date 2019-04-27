@@ -27,6 +27,8 @@ const (
 	entryValidTime = 1 * time.Minute
 )
 
+var Debug = log.Printf
+
 // TODO: FINISH DOCS
 
 // An FS is the interface required of a file system.
@@ -345,20 +347,22 @@ type NetFuseServer struct {
 // connection.
 //
 // Config may be nil.
-func New(fam, addr string, config ...*Config) (*NetFuseServer, error) {
+func New(fam, addr string, fs FS, config ...func(*Server)) (*NetFuseServer, error) {
 	s := &Server{
 		Address:      addr,
 		Server:       rpc.NewServer(),
+		fs:           fs,
 		req:          map[fuse.RequestID]*serveRequest{},
 		nodeRef:      map[Node]fuse.NodeID{},
 		dynamicInode: GenerateDynamicInode,
 	}
 	for _, c := range config {
-		s.debug = c.Debug
-		s.context = c.WithContext
+		c(s)
+		//s.debug = c.Debug
+		//ys.context = c.WithContext
 	}
-	if s.debug == nil {
-		s.debug = fuse.Debug
+	if s.Debug == nil {
+		s.Debug = fuse.Debug
 	}
 	log.Printf("Serve and protect")
 	ln, err := net.Listen(fam, addr)
@@ -412,8 +416,8 @@ type Server struct {
 	net.Listener
 	*rpc.Server
 	net.Conn
-	debug   func(msg interface{})
-	context func(ctx context.Context, req fuse.Request) context.Context
+	Debug   func(msg interface{})
+	Context func(ctx context.Context, req fuse.Request) context.Context
 
 	// set once at Serve time
 	fs           FS
@@ -431,21 +435,6 @@ type Server struct {
 
 	// Used to ensure worker goroutines finish before Serve returns
 	wg sync.WaitGroup
-}
-
-type NetServer struct {
-	fs      FS
-	debug   func(msg interface{})
-	context func(ctx context.Context, req fuse.Request) context.Context
-	// state, protected by meta
-	meta       sync.Mutex
-	req        map[fuse.RequestID]*serveRequest
-	node       []*serveNode
-	nodeRef    map[Node]fuse.NodeID
-	handle     []*serveHandle
-	freeNode   []fuse.NodeID
-	freeHandle []fuse.HandleID
-	nodeGen    uint64
 }
 
 // Serve serves the FUSE connection by making calls to the methods
@@ -602,7 +591,7 @@ func (c *Server) dropNode(id fuse.NodeID, n uint64) (forget bool) {
 		// this should only happen if refcounts kernel<->us disagree
 		// *and* two ForgetRequests for the same node race each other;
 		// this indicates a bug somewhere
-		c.debug(nodeRefcountDropBug{N: n, Node: id})
+		c.Debug(nodeRefcountDropBug{N: n, Node: id})
 
 		// we may end up triggering Forget twice, but that's better
 		// than not even once, and that's the best we can do
@@ -610,7 +599,7 @@ func (c *Server) dropNode(id fuse.NodeID, n uint64) (forget bool) {
 	}
 
 	if n > snode.refs {
-		c.debug(nodeRefcountDropBug{N: n, Refs: snode.refs, Node: id})
+		c.Debug(nodeRefcountDropBug{N: n, Refs: snode.refs, Node: id})
 		n = snode.refs
 	}
 
@@ -649,7 +638,7 @@ func (c *Server) getHandle(id fuse.HandleID) (shandle *serveHandle) {
 		shandle = c.handle[uint(id)]
 	}
 	if shandle == nil {
-		c.debug(missingHandle{
+		c.Debug(missingHandle{
 			Handle:    id,
 			MaxHandle: fuse.HandleID(len(c.handle)),
 		})
@@ -834,13 +823,13 @@ func (c *Server) serve(r fuse.Request) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	parentCtx := ctx
-	if c.context != nil {
-		ctx = c.context(ctx, r)
+	if c.Context != nil {
+		ctx = c.Context(ctx, r)
 	}
 
 	req := &serveRequest{Request: r, cancel: cancel}
 
-	c.debug(request{
+	c.Debug(request{
 		Op:      opName(r),
 		Request: r.Hdr(),
 		In:      r,
@@ -855,7 +844,7 @@ func (c *Server) serve(r fuse.Request) {
 		}
 		if snode == nil {
 			c.meta.Unlock()
-			c.debug(response{
+			c.Debug(response{
 				Op:      opName(r),
 				Request: logResponseHeader{ID: hdr.ID},
 				Error:   fuse.ESTALE.ErrnoName(),
@@ -906,7 +895,7 @@ func (c *Server) serve(r fuse.Request) {
 		} else {
 			msg.Out = resp
 		}
-		c.debug(msg)
+		c.Debug(msg)
 
 		c.meta.Lock()
 		delete(c.req, hdr.ID)
@@ -1065,7 +1054,7 @@ func (c *Server) handleRequest(ctx context.Context, node Node, snode *serveNode,
 		}
 		c.meta.Unlock()
 		if oldNode == nil {
-			c.debug(logLinkRequestOldNodeNotFound{
+			c.Debug(logLinkRequestOldNodeNotFound{
 				Request: r.Hdr(),
 				In:      r,
 			})
@@ -1390,7 +1379,7 @@ func (c *Server) handleRequest(ctx context.Context, node Node, snode *serveNode,
 		}
 		c.meta.Unlock()
 		if newDirNode == nil {
-			c.debug(renameNewDirNodeNotFound{
+			c.Debug(renameNewDirNodeNotFound{
 				Request: r.Hdr(),
 				In:      r,
 			})
