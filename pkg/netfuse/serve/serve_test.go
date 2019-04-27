@@ -40,6 +40,9 @@ func TestNewServer(t *testing.T) {
 	go func() {
 		s.Run()
 	}()
+	if err := cl.Call("NetFuseServer.Root", arg, res); err != nil {
+		t.Fatalf("root: got %v, want nil", err)
+	}
 	if err := cl.Call("NetFuseServer.Statfs", arg, res); err != nil {
 		t.Fatalf("statfs: got %v, want nil", err)
 	}

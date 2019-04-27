@@ -957,6 +957,8 @@ func (c *Server) serve(r fuse.Request) {
 }
 
 func (n *NetFuseServer) Statfs(a fuse.StatfsRequest, r *fuse.StatfsResponse) error {
+	var err error
+	Debug("Statfs %v %v %v", a, r, err)
 	return nil
 }
 
