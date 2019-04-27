@@ -4,6 +4,7 @@ package serve
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	//	"net/rpc"
@@ -612,7 +613,7 @@ type Server struct {
 	wg sync.WaitGroup
 }
 
-func (c *Server) serve(r fuse.Request) {
+func (c *Client) serve(r fuse.Request) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	parentCtx := ctx
@@ -750,7 +751,7 @@ func (c *Server) serve(r fuse.Request) {
 }
 
 // handleRequest will either a) call done(s) and r.Respond(s) OR b) return an error.
-func (c *Server) handleRequest(ctx context.Context, node Node, snode *serveNode, r fuse.Request, done func(resp interface{})) error {
+func (c *Client) handleRequest(ctx context.Context, node Node, snode *serveNode, r fuse.Request, done func(resp interface{})) error {
 	switch r := r.(type) {
 	default:
 		// Note: To FUSE, ENOSYS means "this server never implements this request."
@@ -936,6 +937,20 @@ func errstr(err error) string {
 type Client struct {
 	C net.Conn
 	M *fuse.Conn
+
+	Debug   func(msg interface{})
+	Context func(ctx context.Context, req fuse.Request) context.Context
+
+	// state, protected by meta
+	meta sync.Mutex
+	req  map[fuse.RequestID]*serveRequest
+	node []*serveNode
+
+	wg sync.WaitGroup
+}
+
+func iDebug(i interface{}) {
+	Debug("%v", i)
 }
 
 func New(proto, addr, dir string, options ...fuse.MountOption) (*Client, error) {
@@ -947,9 +962,31 @@ func New(proto, addr, dir string, options ...fuse.MountOption) (*Client, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &Client{C: c, M: m}, nil
+	return &Client{C: c, M: m, Debug: iDebug}, nil
+}
+
+// Serve serves the FUSE connection by making calls to the server.  It
+// returns only when the connection has been closed or an unexpected
+// error occurs.
+func (c *Client) Serve() error {
+	for {
+		req, err := c.M.ReadRequest()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		c.wg.Add(1)
+		go func() {
+			defer c.wg.Done()
+			c.serve(req)
+		}()
+	}
+	return nil
 }
 
 func (c *Client) Start() error {
-	return nil
+	return c.Serve()
 }

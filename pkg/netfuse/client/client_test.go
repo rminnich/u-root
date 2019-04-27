@@ -3,6 +3,7 @@ package serve
 
 import (
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/u-root/u-root/pkg/netfuse/serve"
@@ -35,5 +36,10 @@ func TestNewClient(t *testing.T) {
 			t.Fatalf("Start Client: got %v, want nil", err)
 		}
 	}()
+	fi, err := os.Stat(d)
+	if err != nil {
+		t.Fatalf("Stat mount point %q: %v", d, err)
+	}
+	t.Logf("Stat %q returns %v", d, fi)
 
 }
