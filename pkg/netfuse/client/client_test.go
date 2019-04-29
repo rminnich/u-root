@@ -32,6 +32,9 @@ func TestNewClient(t *testing.T) {
 		if err := s.Start(); err != nil {
 			t.Fatalf("Start server: got %v,want nil", err)
 		}
+		if err := s.Run(); err != nil {
+			t.Fatalf("Run server: got %v, want nil", err)
+		}
 	}()
 	// Talk to me.
 	a := s.Server.Addr()
@@ -56,8 +59,10 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	if err := unix.Unshare(unix.CLONE_NEWNS); err != nil {
-		log.Fatal(err)
+	if false { // still doesn't fix it. Run me under unshare.
+		if err := unix.Unshare(unix.CLONE_NEWNS); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	retCode := m.Run()

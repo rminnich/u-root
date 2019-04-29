@@ -928,15 +928,27 @@ func iDebug(i interface{}) {
 }
 
 func New(proto, addr, dir string, options ...fuse.MountOption) (*Client, error) {
+	Debug("Dial %s %s", proto, addr)
 	c, err := net.Dial(proto, addr)
 	if err != nil {
 		return nil, err
 	}
+	// Ping the server. If there's something wrong we don't even
+	// want to try the mount.
+	var (
+		cl  = rpc.NewClient(c)
+		arg = &fuse.StatfsRequest{}
+		res = &fuse.StatfsResponse{}
+	)
+	if err := cl.Call("NetFuseServer.Statfs", arg, res); err != nil {
+		return nil, fmt.Errorf("New client call to Root:%v", err)
+	}
+	Debug("Client ping to server: %v", res)
 	m, err := fuse.Mount(dir, options...)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{C: c, M: m, Debug: iDebug}, nil
+	return &Client{C: c, M: m, Client: cl, Debug: iDebug}, nil
 }
 
 // Serve serves the FUSE connection by making calls to the server.  It
@@ -965,6 +977,5 @@ func (c *Client) Serve() error {
 }
 
 func (c *Client) Start() error {
-	c.Client = rpc.NewClient(c.C)
 	return c.Serve()
 }
