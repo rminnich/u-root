@@ -7,7 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
-	//	"net/rpc"
+	"net/rpc"
 	"reflect"
 	"runtime"
 	"strings"
@@ -621,49 +621,13 @@ func (c *Client) serve(r fuse.Request) {
 		ctx = c.Context(ctx, r)
 	}
 
-	req := &serveRequest{Request: r, cancel: cancel}
+	//req := &serveRequest{Request: r, cancel: cancel}
 
 	c.Debug(request{
 		Op:      opName(r),
 		Request: r.Hdr(),
 		In:      r,
 	})
-	var node Node
-	var snode *serveNode
-	c.meta.Lock()
-	hdr := r.Hdr()
-	if id := hdr.Node; id != 0 {
-		if id < fuse.NodeID(len(c.node)) {
-			snode = c.node[uint(id)]
-		}
-		if snode == nil {
-			c.meta.Unlock()
-			c.Debug(response{
-				Op:      opName(r),
-				Request: logResponseHeader{ID: hdr.ID},
-				Error:   fuse.ESTALE.ErrnoName(),
-				// this is the only place that sets both Error and
-				// Out; not sure if i want to do that; might get rid
-				// of len(c.node) things altogether
-				Out: logMissingNode{
-					MaxNode: fuse.NodeID(len(c.node)),
-				},
-			})
-			r.RespondError(fuse.ESTALE)
-			return
-		}
-		node = snode.node
-	}
-	if c.req[hdr.ID] != nil {
-		// This happens with OSXFUSE.  Assume it's okay and
-		// that we'll never see an interrupt for this one.
-		// Otherwise everything wedges.  TODO: Report to OSXFUSE?
-		//
-		// TODO this might have been because of missing done() calls
-	} else {
-		c.req[hdr.ID] = req
-	}
-	c.meta.Unlock()
 
 	// Call this before responding.
 	// After responding is too late: we might get another request
@@ -671,7 +635,7 @@ func (c *Client) serve(r fuse.Request) {
 	done := func(resp interface{}) {
 		msg := response{
 			Op:      opName(r),
-			Request: logResponseHeader{ID: hdr.ID},
+			Request: logResponseHeader{ /*ID: hdr.ID*/ },
 		}
 		if err, ok := resp.(error); ok {
 			msg.Error = err.Error()
@@ -691,9 +655,10 @@ func (c *Client) serve(r fuse.Request) {
 		}
 		c.Debug(msg)
 
-		c.meta.Lock()
-		delete(c.req, hdr.ID)
-		c.meta.Unlock()
+		/*
+			c.meta.Lock()
+			delete(c.req, hdr.ID)
+			c.meta.Unlock()*/
 	}
 
 	var responded bool
@@ -722,7 +687,7 @@ func (c *Client) serve(r fuse.Request) {
 		}
 	}()
 
-	if err := c.handleRequest(ctx, node, snode, r, done); err != nil {
+	if err := c.handleRequest(ctx, r, done); err != nil {
 		if err == context.Canceled {
 			select {
 			case <-parentCtx.Done():
@@ -751,7 +716,9 @@ func (c *Client) serve(r fuse.Request) {
 }
 
 // handleRequest will either a) call done(s) and r.Respond(s) OR b) return an error.
-func (c *Client) handleRequest(ctx context.Context, node Node, snode *serveNode, r fuse.Request, done func(resp interface{})) error {
+func (c *Client) handleRequest(ctx context.Context, r fuse.Request, done func(resp interface{})) error {
+	cl := c.Client
+	Debug("Client Handle %v", r)
 	switch r := r.(type) {
 	default:
 		// Note: To FUSE, ENOSYS means "this server never implements this request."
@@ -767,9 +734,15 @@ func (c *Client) handleRequest(ctx context.Context, node Node, snode *serveNode,
 
 	// Node operations.
 	case *fuse.GetattrRequest:
+		Debug("Client Getattr")
 		s := &fuse.GetattrResponse{}
+		if err := cl.Call("NetFuseServer.Getattr", r, s); err != nil {
+			Debug("Client Getattr err %v", err)
+			return err
+		}
 		done(s)
 		r.Respond(s)
+		Debug("Client Getattr done")
 		return nil
 
 	case *fuse.SetattrRequest:
@@ -935,8 +908,9 @@ func errstr(err error) string {
 }
 
 type Client struct {
-	C net.Conn
-	M *fuse.Conn
+	C      net.Conn
+	M      *fuse.Conn
+	Client *rpc.Client
 
 	Debug   func(msg interface{})
 	Context func(ctx context.Context, req fuse.Request) context.Context
@@ -970,7 +944,9 @@ func New(proto, addr, dir string, options ...fuse.MountOption) (*Client, error) 
 // error occurs.
 func (c *Client) Serve() error {
 	for {
+		Debug("Client serve loop")
 		req, err := c.M.ReadRequest()
+		Debug("req %v err %v", req, err)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -981,6 +957,7 @@ func (c *Client) Serve() error {
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
+			Debug("Serve %v", req)
 			c.serve(req)
 		}()
 	}
@@ -988,5 +965,6 @@ func (c *Client) Serve() error {
 }
 
 func (c *Client) Start() error {
+	c.Client = rpc.NewClient(c.C)
 	return c.Serve()
 }

@@ -962,6 +962,12 @@ func (n *NetFuseServer) Statfs(a fuse.StatfsRequest, r *fuse.StatfsResponse) err
 	return nil
 }
 
+func (n *NetFuseServer) Getattr(a fuse.GetattrRequest, r *fuse.GetattrResponse) error {
+	var err error
+	Debug("getattr %v %v %v", a, r, err)
+	return nil
+}
+
 // handleRequest will either a) call done(s) and r.Respond(s) OR b) return an error.
 func (c *Server) handleRequest(ctx context.Context, node Node, snode *serveNode, r fuse.Request, done func(resp interface{})) error {
 	switch r := r.(type) {
