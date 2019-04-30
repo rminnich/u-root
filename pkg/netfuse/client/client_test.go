@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewClient(t *testing.T) {
-	Debug = t.Logf
+	serve.Debug, Debug = t.Logf, t.Logf
 	fs, err := serve.NewFileSystem("/tmp")
 	if err != nil {
 		t.Fatalf("NewFileSystem: got %v, want nil", err)

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"bazil.org/fuse"
-	"golang.org/x/net/context"
 	"golang.org/x/sys/unix"
 )
 
@@ -22,21 +21,19 @@ func NewFileSystem(root string) (FS, error) {
 	}, nil
 }
 
-func (f *FileSystem) Root() (Node, error) {
-	Debug("Root: %v", f)
-	return f, nil
-}
-
-func (f *FileSystem) Attr(ctx context.Context, a *fuse.Attr) error {
-	Debug("Attr: %v %v", a, nil)
+func (f *FileSystem) Getattr(req *fuse.GetattrRequest, resp *fuse.GetattrResponse) error {
+	Debug("Attr: %v %v", req, nil)
 	i, err := os.Stat(f.root)
 	if err != nil {
 		return err
 	}
-	a.Valid = attrValidTime
-	a.Size = uint64(i.Size())
-	a.Blocks = a.Size / 4096
-	a.Mode = i.Mode()
+	Debug("Stat %v get %v", f.root, i)
+	/*
+		resp.Valid = attrValidTime
+		resp.Size = uint64(i.Size())
+		resp.Blocks = resp.Size / 4096
+		resp.Mode = i.Mode()
+	*/
 	return nil
 	//type FileInfo interface {
 	// Name() string       // base name of the file
@@ -48,7 +45,7 @@ func (f *FileSystem) Attr(ctx context.Context, a *fuse.Attr) error {
 
 }
 
-func (f *FileSystem) StatFS() error {
+func (f *FileSystem) Statfs(req *fuse.StatfsRequest, resp *fuse.StatfsResponse) error {
 	var buf unix.Statfs_t
 	err := unix.Statfs(f.root, &buf)
 	if err != nil {

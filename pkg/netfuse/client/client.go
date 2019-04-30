@@ -718,7 +718,7 @@ func (c *Client) serve(r fuse.Request) {
 // handleRequest will either a) call done(s) and r.Respond(s) OR b) return an error.
 func (c *Client) handleRequest(ctx context.Context, r fuse.Request, done func(resp interface{})) error {
 	cl := c.Client
-	Debug("Client Handle %v", r)
+	Debug("Client:Handle %v", r)
 	switch r := r.(type) {
 	default:
 		// Note: To FUSE, ENOSYS means "this server never implements this request."
@@ -734,15 +734,15 @@ func (c *Client) handleRequest(ctx context.Context, r fuse.Request, done func(re
 
 	// Node operations.
 	case *fuse.GetattrRequest:
-		Debug("Client Getattr")
+		Debug("Client:Getattr")
 		s := &fuse.GetattrResponse{}
 		if err := cl.Call("NetFuseServer.Getattr", r, s); err != nil {
-			Debug("Client Getattr err %v", err)
+			Debug("Client:Getattr err %v", err)
 			return err
 		}
 		done(s)
 		r.Respond(s)
-		Debug("Client Getattr done")
+		Debug("Client:Getattr done")
 		return nil
 
 	case *fuse.SetattrRequest:
@@ -924,11 +924,11 @@ type Client struct {
 }
 
 func iDebug(i interface{}) {
-	Debug("%v", i)
+	Debug("Client:%v", i)
 }
 
 func New(proto, addr, dir string, options ...fuse.MountOption) (*Client, error) {
-	Debug("Dial %s %s", proto, addr)
+	Debug("Client:Dial %s %s", proto, addr)
 	c, err := net.Dial(proto, addr)
 	if err != nil {
 		return nil, err
@@ -943,7 +943,7 @@ func New(proto, addr, dir string, options ...fuse.MountOption) (*Client, error) 
 	if err := cl.Call("NetFuseServer.Statfs", arg, res); err != nil {
 		return nil, fmt.Errorf("New client call to Root:%v", err)
 	}
-	Debug("Client ping to server: %v", res)
+	Debug("Client:Client ping to server: %v", res)
 	m, err := fuse.Mount(dir, options...)
 	if err != nil {
 		return nil, err
@@ -956,9 +956,9 @@ func New(proto, addr, dir string, options ...fuse.MountOption) (*Client, error) 
 // error occurs.
 func (c *Client) Serve() error {
 	for {
-		Debug("Client serve loop")
+		Debug("Client:serve loop")
 		req, err := c.M.ReadRequest()
-		Debug("req %v err %v", req, err)
+		Debug("Client:req %v err %v", req, err)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -969,7 +969,7 @@ func (c *Client) Serve() error {
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
-			Debug("Serve %v", req)
+			Debug("Client:Serve %v", req)
 			c.serve(req)
 		}()
 	}
