@@ -3,7 +3,6 @@
 package serve
 
 import (
-	"os"
 	"time"
 
 	"bazil.org/fuse"
@@ -23,25 +22,7 @@ func NewFileSystem(root string) (FS, error) {
 
 func (f *FileSystem) Getattr(req *fuse.GetattrRequest, resp *fuse.GetattrResponse) error {
 	Debug("Attr: %v %v", req, nil)
-	i, err := os.Stat(f.root)
-	if err != nil {
-		return err
-	}
-	Debug("Stat %v get %v", f.root, i)
-	/*
-		resp.Valid = attrValidTime
-		resp.Size = uint64(i.Size())
-		resp.Blocks = resp.Size / 4096
-		resp.Mode = i.Mode()
-	*/
-	return nil
-	//type FileInfo interface {
-	// Name() string       // base name of the file
-	// Size() int64        // length in bytes for regular files; system-dependent for others
-	// Mode() FileMode     // file mode bits
-	// ModTime() time.Time // modification time
-	// IsDir() bool        // abbreviation for Mode().IsDir()
-	// Sys() interface{}   // underlying data source (can return nil)
+	return Attr(f.root, &resp.Attr)
 
 }
 
