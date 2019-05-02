@@ -34,7 +34,8 @@ func Attr(n string, attr *fuse.Attr) error {
 	attr.Atime = spec(l.Atim)
 	attr.Mtime = spec(l.Mtim)
 	attr.Ctime = spec(l.Ctim)
-	attr.Mode = os.FileMode(l.Mode)
+	attr.Mode = fi.Mode()
+	Debug("Set mode to %#o", attr.Mode)
 	attr.Nlink = uint32(l.Nlink)
 	attr.Uid = l.Uid
 	attr.Gid = l.Gid
