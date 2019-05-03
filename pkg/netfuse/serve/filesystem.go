@@ -20,6 +20,10 @@ func NewFileSystem(root string) (FS, error) {
 	}, nil
 }
 
+func (f *FileSystem) Open(req *fuse.OpenRequest, resp *fuse.OpenResponse) error {
+
+}
+
 func (f *FileSystem) Getattr(req *fuse.GetattrRequest, resp *fuse.GetattrResponse) error {
 	Debug("Attr: %v %v", req, nil)
 	return Attr(f.root, &resp.Attr)

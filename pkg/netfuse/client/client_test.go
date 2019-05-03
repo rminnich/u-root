@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"bazil.org/fuse"
@@ -55,6 +56,17 @@ func TestNewClient(t *testing.T) {
 		t.Fatalf("Stat mount point %q: %v", d, err)
 	}
 	t.Logf("Stat %q returns %v", d, fi)
+	hi := filepath.Join(d, "hi")
+	fi, err = os.Stat(hi)
+	if err == nil {
+		t.Fatalf("Stat file %q: got nil, want err", hi)
+	}
+	t.Logf("Stat %q returns %v", hi, err)
+	o, err := os.Create(hi)
+	if err != nil {
+		t.Fatalf("create %q: got %v, want nil", d, err)
+	}
+	t.Logf("create %q gets %v", d, o)
 
 }
 

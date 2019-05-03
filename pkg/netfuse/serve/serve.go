@@ -25,7 +25,26 @@ const (
 	entryValidTime = 1 * time.Minute
 )
 
-var Debug = log.Printf
+var (
+	Debug   = log.Printf
+	Handles = map[fuse.HandleID]*Handle{}
+	hid     fuse.HandleID
+	hmut    sync.Mutex
+)
+
+func AddHandle(h *Handle) fuse.HandleID {
+	hmut.Lock()
+	defer hmut.Unlock()
+	hid++
+	Handles[hid] = h
+	return hid
+}
+
+func DelHandle(h fuse.HandleID) {
+	hmut.Lock()
+	defer hmut.Unlock()
+	delete(Handles, h)
+}
 
 // An FS is the interface required of a file system.
 // Yeah, it's Yet Another File System for RPC. I seem to do these every
