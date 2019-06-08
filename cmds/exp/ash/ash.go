@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -20,7 +21,7 @@ import (
 
 var (
 	debug   = flag.Bool("d", false, "enable debug prints")
-	userush = flag.Bool("R", false, "Use the rush interpreter for commands")
+	userush = flag.Bool("R", true, "Use the rush interpreter for commands")
 	v       = func(string, ...interface{}) {}
 )
 
@@ -29,19 +30,33 @@ func verbose(f string, a ...interface{}) {
 }
 
 func output(s chan string, w io.Writer) {
+	var prevline string
 	for l := range s {
-		if _, err := w.Write([]byte("\r")); err != nil {
+		p := "\r"
+		if l == "\n" {
+			fmt.Print("\r\n"+prompt())
+			prevline = prompt()
+			continue
+		}
+		if _, err := w.Write([]byte(p)); err != nil {
 			log.Printf("output write: %v", err)
 		}
+		// We are now at the left. Write blanks for the size of prevline
+		// followed by newline
+		if len(prevline) > len(prompt()) + len(l) {
+			fmt.Fprintf(w, "%*s", len(prevline)+1, "\r")
+		}
+		fmt.Print(prompt())
+		prevline = prompt()
 		for _, b := range l {
 			var o string
 			switch b {
 			default:
 				o = string(b)
-			case '\b', 127:
-				o = "\b \b"
+				prevline += o
 			case '\r', '\n':
 				o = "\r\n"
+				prevline = ""
 			}
 			if _, err := w.Write([]byte(o)); err != nil {
 				log.Printf("output write: %v", err)
@@ -75,12 +90,13 @@ func main() {
 		log.Fatal(err)
 	}
 	f := complete.NewFileCompleter("/")
-	bin := complete.NewMultiCompleter(complete.NewStringCompleter([]string{"exit"}), p)
+	bin := complete.NewMultiCompleter(complete.NewStringCompleter(builtinList), p)
 	rest := f
 	l := complete.NewLineReader(bin, t, cw)
 	lines := make(chan string)
 	go output(lines, os.Stdout)
 	var lineComplete bool
+	fmt.Print(prompt())
 	for !l.EOF {
 		lineComplete = false
 		l.C = bin
@@ -109,13 +125,10 @@ func main() {
 		}
 
 		v("back from ReadChar, l is %v", l)
-		if l.Line == "exit" {
-			break
-		}
 		if lineComplete && l.Line != "" {
 			v("ash: Done reading args: line %q", l.Line)
 			// here we go.
-			lines <- "\n"
+			lines <- l.Line+"\r"
 			t.Set(r)
 			if !*userush {
 				f := strings.Fields(l.Line)
@@ -136,6 +149,9 @@ func main() {
 				}
 
 			} else {
+				if l.Line == "exit" {
+					break
+				}
 				b := bufio.NewReader(bytes.NewBufferString(l.Line))
 				if err := rush(b); err != nil {
 					log.Print(err)
@@ -143,7 +159,16 @@ func main() {
 			}
 			foreground()
 			t.Raw()
-
+			lines <- "\n"
+			l.Line = ""
+			l.Candidates = []string{}
+			l.C = bin
+			l.Fields = 0
+			l.Exact = ""
+			continue
+		}
+		if lineComplete {
+			lines <- "\n"
 			l.Line = ""
 			l.Candidates = []string{}
 			l.C = bin
@@ -158,7 +183,7 @@ func main() {
 			for _, ln := range l.Candidates {
 				lines <- "\n" + ln
 			}
-			lines <- "\n"
+			lines <- strings.Join(l.Candidates, "\n") + "\n"
 		}
 		lines <- l.Line
 	}
