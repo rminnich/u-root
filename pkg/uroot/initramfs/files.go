@@ -201,11 +201,13 @@ func (af *Files) WriteTo(w Writer) error {
 	// same order.
 	for _, path := range af.sortedKeys() {
 		if record, ok := af.Records[path]; ok {
+			log.Printf("Adding record %v to archive", record)
 			if err := w.WriteRecord(record); err != nil {
 				return err
 			}
 		}
 		if src, ok := af.Files[path]; ok {
+			log.Printf("Adding file %v to archive at path %s", src, path)
 			if err := writeFile(w, cr, src, path); err != nil {
 				return err
 			}

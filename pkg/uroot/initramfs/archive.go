@@ -7,6 +7,7 @@ package initramfs
 import (
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/u-root/u-root/pkg/cpio"
 	"github.com/u-root/u-root/pkg/uroot/logger"
@@ -118,6 +119,7 @@ func Write(opts *Opts) error {
 			if err != nil {
 				return err
 			}
+			log.Printf("Adding %v to archive", f)
 			// TODO: ignore only the error where it already exists
 			// in archive.
 			opts.Files.AddRecord(transform(f))

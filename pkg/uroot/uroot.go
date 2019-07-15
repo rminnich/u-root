@@ -7,6 +7,7 @@ package uroot
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -188,6 +189,7 @@ func CreateInitramfs(logger logger.Logger, opts Opts) error {
 		if err != nil {
 			return err
 		}
+		log.Printf("Packages for %v, %v: %v", index, cmds, importPaths)
 		opts.Commands[index].Packages = importPaths
 	}
 
@@ -205,6 +207,7 @@ func CreateInitramfs(logger logger.Logger, opts Opts) error {
 			TempDir:   builderTmpDir,
 			BinaryDir: cmds.TargetDir(),
 		}
+		log.Printf("build %v %v", files, bOpts)
 		if err := cmds.Builder.Build(files, bOpts); err != nil {
 			return fmt.Errorf("error building: %v", err)
 		}

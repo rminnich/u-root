@@ -179,6 +179,7 @@ func buildToolchain(opts Opts) error {
 
 func goListPkg(opts Opts, importPath string, out *initramfs.Files) *golang.ListPackage {
 	p, err := opts.Env.Deps(importPath)
+	log.Printf("%s gets Deps %v, %v", importPath, p, err)
 	if err != nil {
 		log.Printf("Can't list Go dependencies for %v; ignoring.", importPath)
 		return nil
@@ -191,6 +192,7 @@ func goListPkg(opts Opts, importPath string, out *initramfs.Files) *golang.ListP
 		if p.Goroot {
 			out.AddFile(srcFile, filepath.Join("go", relPath))
 		} else {
+			log.Printf("AddFile(%s, %s)", srcFile, relPath)
 			out.AddFile(srcFile, relPath)
 		}
 	}
