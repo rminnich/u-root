@@ -65,7 +65,7 @@
   version = "v1.0.2"
 
 [[projects]]
-  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
+  digest = "1:1d1cbf539d9ac35eb3148129f96be5537f1a1330cadcc7e3a83b4e72a59672a3"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
@@ -75,8 +75,8 @@
     "cmp/internal/value",
   ]
   pruneopts = "NUT"
-  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
-  version = "v0.3.0"
+  revision = "2d0692c2e9617365a95b295612ac0d4415ba4627"
+  version = "v0.3.1"
 
 [[projects]]
   digest = "1:28c6f29a00fc674ce801a4e8e10eacdbb49dbe2eea79a2b3d60b405cc0bd2b2d"
@@ -125,6 +125,57 @@
   ]
   pruneopts = "NUT"
   revision = "6d0d21cc633742eb4de9b08ad7a53572a6907623"
+
+[[projects]]
+  branch = "master"
+  digest = "1:93c1a5215a96cc056547241b5f95e992e780a819129495e233be83f12e8ebf55"
+  name = "github.com/jacobsa/oglematchers"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "141901ea67cd4769c6800aa7bfdfc558fa22bda5"
+
+[[projects]]
+  branch = "master"
+  digest = "1:33f88909d135c8c982aaa774568c4865bc07b0978b4fb53174162442bc396098"
+  name = "github.com/jacobsa/oglemock"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "e94d794d06ffc6de42cb19d0dab3c219efdd6dcf"
+
+[[projects]]
+  branch = "master"
+  digest = "1:4df2aa98233c4a9a8486950931a244cf3cdf8d7d8706a36720cc1ff867a6c7d7"
+  name = "github.com/jacobsa/ogletest"
+  packages = [
+    ".",
+    "srcutil",
+  ]
+  pruneopts = "NUT"
+  revision = "80d50a735a1108a2aeb7abc4a988d183f20c5292"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b2fed5b0dcb3c1bd8817a22e0fe426e0f54afb569076e6e9a97e141b4496c0f9"
+  name = "github.com/jacobsa/reqtrace"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "245c9e0234cb2ad542483a336324e982f1a22934"
+
+[[projects]]
+  branch = "master"
+  digest = "1:e792c76c07edf1e254d7ae58539fc98168923439fb3b1bb0dfeeb51e3cdb1ee8"
+  name = "github.com/jacobsa/syncutil"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "228ac8e5a6c3992346c7d4565650c37f7bb477b6"
+
+[[projects]]
+  branch = "master"
+  digest = "1:41f5e5d39855bd13aafecb48b75b546fcbe5ed847fcbe01a2ccf156506b681c1"
+  name = "github.com/jacobsa/timeutil"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "577e5acbbcf60f68c80c6f5edfeefe50e477c853"
 
 [[projects]]
   branch = "master"
@@ -281,6 +332,23 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:0b259ae87965a8b433355ec447a5ec42035cec2c79dd2bd23842df56a474e893"
+  name = "github.com/u-root/fuse"
+  packages = [
+    ".",
+    "fuseops",
+    "fusetesting",
+    "fuseutil",
+    "internal/buffer",
+    "internal/freelist",
+    "internal/fusekernel",
+    "samples",
+  ]
+  pruneopts = "NUT"
+  revision = "3a5cf19c66bd38740ccd68d451fb1015440a3c71"
+
+[[projects]]
+  branch = "master"
   digest = "1:badbd25e98974dc2bec0d02dad67a79a74e1e65ef32a423e75fa1fe80aec57dc"
   name = "github.com/vishvananda/netlink"
   packages = [
@@ -326,10 +394,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:64048d1baf49e847abfcaabab3f17494f07da9b3b82a3d3b16e6ebe50f91baea"
+  digest = "1:a29f0102a42414541e61ffafc57a5d8ceb129ff22c72927c71272c3a0ec46cca"
   name = "golang.org/x/net"
   packages = [
     "bpf",
+    "context",
     "internal/iana",
     "internal/socket",
     "ipv4",
@@ -366,7 +435,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fb5cf331f3037a2d153a00650e61b4469769d4c93aa1ab479827a8e7fd4a907d"
+  digest = "1:396e96dc205fbf29bb19476a102a9ab3be4ed685cae2825149884bf1fd3a4b91"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
@@ -383,7 +452,7 @@
     "internal/semver",
   ]
   pruneopts = "NUT"
-  revision = "c5a2fd39b72a2403dae32d544b008ff4973c8b29"
+  revision = "e713427fea3f98cb070e72a058c557a1a560cf22"
 
 [[projects]]
   digest = "1:a222e924e8dfeca0eccb0e6e8958d233752df7d52b6996f03df2a13a542c30f4"
@@ -425,6 +494,9 @@
     "github.com/insomniacslk/dhcp/iana",
     "github.com/insomniacslk/dhcp/interfaces",
     "github.com/insomniacslk/dhcp/netboot",
+    "github.com/jacobsa/oglematchers",
+    "github.com/jacobsa/ogletest",
+    "github.com/jacobsa/syncutil",
     "github.com/klauspost/pgzip",
     "github.com/kr/pty",
     "github.com/mattn/go-isatty",
@@ -436,6 +508,11 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/systemboot/tpmtool/pkg/tpm",
+    "github.com/u-root/fuse",
+    "github.com/u-root/fuse/fuseops",
+    "github.com/u-root/fuse/fusetesting",
+    "github.com/u-root/fuse/fuseutil",
+    "github.com/u-root/fuse/samples",
     "github.com/vishvananda/netlink",
     "golang.org/x/crypto/ed25519",
     "golang.org/x/crypto/md4",

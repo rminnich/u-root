@@ -258,6 +258,21 @@ func runContainsQueries(cfg *Config, driver driver, response *responseDeduper, q
 				// Return the original error if the attempt to fall back failed.
 				return err
 			}
+			// Special case to handle issue #33482:
+			// If this is a file= query for ad-hoc packages where the file only exists on an overlay,
+			// and exists outside of a module, add the file in for the package.
+			if len(dirResponse.Packages) == 1 && len(dirResponse.Packages) == 1 &&
+				dirResponse.Packages[0].ID == "command-line-arguments" && len(dirResponse.Packages[0].GoFiles) == 0 {
+				filename := filepath.Join(pattern, filepath.Base(query)) // avoid recomputing abspath
+				// TODO(matloob): check if the file is outside of a root dir?
+				for path := range cfg.Overlay {
+					if path == filename {
+						dirResponse.Packages[0].Errors = nil
+						dirResponse.Packages[0].GoFiles = []string{path}
+						dirResponse.Packages[0].CompiledGoFiles = []string{path}
+					}
+				}
+			}
 		}
 		isRoot := make(map[string]bool, len(dirResponse.Roots))
 		for _, root := range dirResponse.Roots {
@@ -841,7 +856,20 @@ func invokeGo(cfg *Config, args ...string) (*bytes.Buffer, error) {
 			return bytes.NewBufferString(output), nil
 		}
 
+		// Backwards compatibility for Go 1.11 because 1.12 and 1.13 put the directory in the ImportPath.
+		// If the package doesn't exist, put the absolute path of the directory into the error message,
+		// as Go 1.13 list does.
+		const noSuchDirectory = "no such directory"
+		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), noSuchDirectory) {
+			errstr := stderr.String()
+			abspath := strings.TrimSpace(errstr[strings.Index(errstr, noSuchDirectory)+len(noSuchDirectory):])
+			output := fmt.Sprintf(`{"ImportPath": %q,"Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
+				abspath, strings.Trim(stderr.String(), "\n"))
+			return bytes.NewBufferString(output), nil
+		}
+
 		// Workaround for #29280: go list -e has incorrect behavior when an ad-hoc package doesn't exist.
+		// Note that the error message we look for in this case is different that the one looked for above.
 		if len(stderr.String()) > 0 && strings.Contains(stderr.String(), "no such file or directory") {
 			output := fmt.Sprintf(`{"ImportPath": "command-line-arguments","Incomplete": true,"Error": {"Pos": "","Err": %q}}`,
 				strings.Trim(stderr.String(), "\n"))
