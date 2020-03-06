@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 
 	"github.com/u-root/u-root/pkg/cpio"
 	"github.com/u-root/u-root/pkg/golang"
@@ -75,7 +76,7 @@ type SourceBuilder struct {
 //
 // The initramfs default binary dir is buildbin.
 func (SourceBuilder) DefaultBinaryDir() string {
-	return "buildbin"
+	return filepath.Join(runtime.GOARCH, "buildbin")
 }
 
 // Build is an implementation of Builder.Build.

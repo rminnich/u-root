@@ -88,8 +88,8 @@ func main() {
 		libinit.Command("/bin/uinit", ctty, uinitArgs),
 		libinit.Command("/buildbin/uinit", ctty, uinitArgs),
 
-		libinit.Command("/bin/defaultsh", ctty),
-		libinit.Command("/bin/sh", ctty),
+		libinit.Command("defaultsh", ctty),
+		libinit.Command("sh", ctty),
 	}
 
 	cmdCount := libinit.RunCommands(debug, cmdList...)

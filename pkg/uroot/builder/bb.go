@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"runtime"
 
 	"github.com/u-root/u-root/pkg/bb"
 	"github.com/u-root/u-root/pkg/cpio"
@@ -37,7 +38,7 @@ type BBBuilder struct{}
 //
 // The default initramfs binary dir is bbin for busybox binaries.
 func (BBBuilder) DefaultBinaryDir() string {
-	return "bbin"
+	return filepath.Join(runtime.GOARCH, "bbin")
 }
 
 // Build is an implementation of Builder.Build for a busybox-like initramfs.

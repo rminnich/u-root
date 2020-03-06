@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/u-root/u-root/pkg/cpio"
@@ -43,7 +44,7 @@ var DefaultRamfs = cpio.ArchiveFromRecords([]cpio.Record{
 	cpio.Directory("usr/lib", 0755),
 	cpio.Directory("var/log", 0777),
 	cpio.Directory("lib64", 0755),
-	cpio.Directory("bin", 0755),
+	cpio.Directory(filepath.Join(runtime.GOARCH, "bin"), 0755),
 	cpio.CharDev("dev/console", 0600, 5, 1),
 	cpio.CharDev("dev/tty", 0666, 5, 0),
 	cpio.CharDev("dev/null", 0666, 1, 3),
@@ -202,6 +203,10 @@ func CreateInitramfs(logger ulog.Logger, opts Opts) error {
 	}
 
 	files := initramfs.NewFiles()
+	// Add the initial arch directory.
+	if err := files.AddRecord(cpio.Directory(runtime.GOARCH, 0755)); err != nil {
+		return err
+	}
 
 	// Expand commands.
 	for index, cmds := range opts.Commands {
@@ -245,13 +250,13 @@ func CreateInitramfs(logger ulog.Logger, opts Opts) error {
 	if err := opts.addSymlinkTo(logger, archive, opts.InitCmd, "init"); err != nil {
 		return fmt.Errorf("%v: specify -initcmd=\"\" to ignore this error and build without an init", err)
 	}
-	if err := opts.addSymlinkTo(logger, archive, opts.UinitCmd, "bin/uinit"); err != nil {
+	if err := opts.addSymlinkTo(logger, archive, opts.UinitCmd, filepath.Join(runtime.GOARCH, "bin/uinit")); err != nil {
 		return fmt.Errorf("%v: specify -uinitcmd=\"\" to ignore this error and build without a uinit", err)
 	}
-	if err := opts.addSymlinkTo(logger, archive, opts.DefaultShell, "bin/sh"); err != nil {
+	if err := opts.addSymlinkTo(logger, archive, opts.DefaultShell, filepath.Join(runtime.GOARCH, "bin/sh")); err != nil {
 		return fmt.Errorf("%v: specify -defaultsh=\"\" to ignore this error and build without a shell", err)
 	}
-	if err := opts.addSymlinkTo(logger, archive, opts.DefaultShell, "bin/defaultsh"); err != nil {
+	if err := opts.addSymlinkTo(logger, archive, opts.DefaultShell, filepath.Join(runtime.GOARCH, "bin/defaultsh")); err != nil {
 		return fmt.Errorf("%v: specify -defaultsh=\"\" to ignore this error and build without a shell", err)
 	}
 

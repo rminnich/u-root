@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"syscall"
 	"testing"
 
@@ -168,7 +169,7 @@ func TestCreateInitramfs(t *testing.T) {
 	defer os.RemoveAll(dir)
 	syscall.Umask(0)
 
-	tmp777 := filepath.Join(dir, "tmp777")
+	tmp777 := "tmp777"
 	if err := os.MkdirAll(tmp777, 0777); err != nil {
 		t.Error(err)
 	}
@@ -203,11 +204,11 @@ func TestCreateInitramfs(t *testing.T) {
 			},
 			want: "",
 			validators: []itest.ArchiveValidator{
-				itest.HasFile{"bbin/bb"},
-				itest.HasRecord{cpio.Symlink("bbin/init", "bb")},
-				itest.HasRecord{cpio.Symlink("bbin/ls", "bb")},
-				itest.HasRecord{cpio.Symlink("bin/defaultsh", "../bbin/ls")},
-				itest.HasRecord{cpio.Symlink("bin/sh", "../bbin/ls")},
+				itest.HasFile{filepath.Join(runtime.GOARCH, "bbin/bb")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bbin/init"), "bb")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bbin/ls"), "bb")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bin/defaultsh"), "../bbin/ls")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bin/sh"), "../bbin/ls")},
 			},
 		},
 		{
@@ -305,20 +306,20 @@ func TestCreateInitramfs(t *testing.T) {
 				itest.HasRecord{cpio.Symlink("init", "bbin/init")},
 
 				// bb mode.
-				itest.HasFile{"bbin/bb"},
-				itest.HasRecord{cpio.Symlink("bbin/init", "bb")},
-				itest.HasRecord{cpio.Symlink("bbin/ls", "bb")},
-				itest.HasRecord{cpio.Symlink("bin/defaultsh", "../bbin/ls")},
-				itest.HasRecord{cpio.Symlink("bin/sh", "../bbin/ls")},
+				itest.HasFile{filepath.Join(runtime.GOARCH, "bbin/bb")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bbin/init"), "bb")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bbin/ls"), "bb")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bin/defaultsh"), filepath.Join("..", runtime.GOARCH, "bbin/ls"))},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "bin/sh"), filepath.Join("..", runtime.GOARCH, "bbin/ls"))},
 
 				// binary mode.
 				itest.HasFile{"bin/cp"},
 				itest.HasFile{"bin/dd"},
 
 				// source mode.
-				itest.HasRecord{cpio.Symlink("buildbin/cat", "installcommand")},
-				itest.HasRecord{cpio.Symlink("buildbin/chroot", "installcommand")},
-				itest.HasFile{"buildbin/installcommand"},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "buildbin/cat"), "installcommand")},
+				itest.HasRecord{cpio.Symlink(filepath.Join(runtime.GOARCH, "buildbin/chroot"), "installcommand")},
+				itest.HasFile{filepath.Join(runtime.GOARCH, "buildbin/installcommand")},
 				itest.HasFile{"src/github.com/u-root/u-root/cmds/core/cat/cat.go"},
 				itest.HasFile{"src/github.com/u-root/u-root/cmds/core/chroot/chroot.go"},
 				itest.HasFile{"src/github.com/u-root/u-root/cmds/core/installcommand/installcommand.go"},
