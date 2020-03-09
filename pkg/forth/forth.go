@@ -177,11 +177,13 @@ func (f *stack) Empty() bool {
 // otherwise.
 func errRecover(errp *error) {
 	e := recover()
+	Debug("errRecover: e %v", e)
 	if e != nil {
 		if _, ok := e.(runtime.Error); ok {
 			panic(e)
 		}
 		*errp = fmt.Errorf("%v", e)
+		Debug("errp is %v", *errp)
 	}
 }
 
