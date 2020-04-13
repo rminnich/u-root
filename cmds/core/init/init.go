@@ -75,6 +75,8 @@ func main() {
 	//
 	// uroot.uinitargs="-v --foobar"
 	uinitArgs := libinit.WithArguments(cmdline.GetUinitArgs()...)
+	a := runtime.GOARCH
+	initEnv := libinit.WithEnv("PATH=/%s:/%s/bbin:/%s/bin:/%s/buildbin", a, a, a, a)
 
 	cmdList := []*exec.Cmd{
 		// inito is (optionally) created by the u-root command when the
@@ -82,14 +84,10 @@ func main() {
 		// has a /init. The name inito means "original /init" There may
 		// be an inito if we are building on an existing initramfs. All
 		// initos need their own pid space.
-		libinit.Command("/inito", libinit.WithCloneFlags(syscall.CLONE_NEWPID), ctty),
-
-		libinit.Command("/bbin/uinit", ctty, uinitArgs),
-		libinit.Command("/bin/uinit", ctty, uinitArgs),
-		libinit.Command("/buildbin/uinit", ctty, uinitArgs),
-
-		libinit.Command("defaultsh", ctty),
-		libinit.Command("sh", ctty),
+		libinit.Command("inito", libinit.WithCloneFlags(syscall.CLONE_NEWPID, initEnv), ctty),
+		libinit.Command("uinit", ctty, uinitArgs, initEnv),
+		libinit.Command("defaultsh", ctty, initEnv),
+		libinit.Command("sh", ctty, initEnv),
 	}
 
 	cmdCount := libinit.RunCommands(debug, cmdList...)

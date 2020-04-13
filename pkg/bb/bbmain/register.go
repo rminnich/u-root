@@ -19,6 +19,10 @@ var ErrNotRegistered = errors.New("command not registered")
 // Noop is a noop function.
 var Noop = func() {}
 
+func BBin(n ...string) string {
+	return filepath.Join(runtime.GOARCH, "bbin", n...)
+}
+
 // ListCmds lists bb commands and verifies symlinks.
 // It is by convention called when the bb command is invoked directly.
 // For every command, there should be a symlink in /bbin,
@@ -32,7 +36,7 @@ func ListCmds() {
 		bb   string
 	}
 	names := map[string]*known{}
-	g, err := filepath.Glob("/bbin/*")
+	g, err := filepath.Glob(BBin("*"))
 	if err != nil {
 		fmt.Printf("bb: unable to enumerate /bbin")
 	}
@@ -40,7 +44,7 @@ func ListCmds() {
 	// First step is to assemble a list of all possible
 	// names, both from /bbin/* and our built in commands.
 	for _, l := range g {
-		if l == "/bbin/bb" {
+		if l == Bbin("bb") {
 			continue
 		}
 		b := filepath.Base(l)
@@ -81,7 +85,7 @@ func ListCmds() {
 		fmt.Println("There is at least one problem. Known causes:")
 		fmt.Println("At least two initrds -- one compiled in to the kernel, a second supplied by the bootloader.")
 		fmt.Println("The initrd cpio was changed after creation or merged with another one.")
-		fmt.Println("When the initrd was created, files were inserted into /bbin by mistake.")
+		fmt.Println("When the initrd was created, files were inserted into /runtime.GOARCH//bbin by mistake.")
 		fmt.Println("Post boot, files were added to /bbin.")
 	}
 }

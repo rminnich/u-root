@@ -104,6 +104,24 @@ func WithArguments(arg ...string) CommandModifier {
 	}
 }
 
+func WithCloneFlags(flags uintptr) CommandModifier {
+	return func(c *exec.Cmd) {
+		if c.SysProcAttr == nil {
+			c.SysProcAttr = &syscall.SysProcAttr{}
+		}
+		c.SysProcAttr.Cloneflags = flags
+	}
+}
+
+// WithEnv adds environment variables to a command.
+func WithEnv(env ...string) CommandModifier {
+	return func(c *exec.Cmd) {
+		if len(env) > 0 {
+			c.Env = append(c.Env, env...)
+		}
+	}
+}
+
 // Command constructs an *exec.Cmd object.
 func Command(bin string, m ...CommandModifier) *exec.Cmd {
 	bin = upath.UrootPath(bin)
