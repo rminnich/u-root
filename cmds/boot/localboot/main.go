@@ -114,22 +114,21 @@ func BootGrubMode(devices []storage.BlockDev, baseMountpoint string, guid string
 	}
 	log.Printf("Found %d boot configs", len(bootconfigs))
 	for _, cfg := range bootconfigs {
-		debug("%+v", cfg)
+		debug("%+v: %v", cfg, cfg.FileNames())
 	}
 	for n, cfg := range bootconfigs {
 		log.Printf("  %d: %s\n", n, cfg.Name)
 	}
 	if configIdx > -1 {
-		for n, cfg := range bootconfigs {
-			if configIdx == n {
-				if dryrun {
-					debug("Dry-run mode: will not boot the found configuration")
-					debug("Boot configuration: %+v", cfg)
-					return nil
-				}
-				if err := cfg.Boot(); err != nil {
-					log.Printf("Failed to boot kernel %s: %v", cfg.Kernel, err)
-				}
+		if configIdx < len(bootconfigs) {
+			cfg := bootconfigs[configIdx]
+			if dryrun {
+				debug("Dry-run mode: will not boot the found configuration")
+				debug("Boot configuration: %+v", cfg)
+				return nil
+			}
+			if err := cfg.Boot(); err != nil {
+				log.Printf("Failed to boot kernel %s: %v", cfg.Kernel, err)
 			}
 		}
 		log.Printf("Invalid arg -config %d: there are only %d bootconfigs available\n", configIdx, len(bootconfigs))
