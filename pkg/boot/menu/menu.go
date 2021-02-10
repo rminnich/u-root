@@ -202,7 +202,6 @@ func Choose(input *os.File, entries ...Entry) Entry {
 // The user is left to call Entry.Exec when this function returns.
 func ShowMenuAndLoad(input *os.File, entries ...Entry) Entry {
 	// Clear the screen (ANSI terminal escape code for screen clear).
-	fmt.Printf("\033[1;1H\033[2J\n\n")
 	fmt.Printf("Welcome to LinuxBoot's Menu\n\n")
 	fmt.Printf("Enter a number to boot a kernel:\n")
 
