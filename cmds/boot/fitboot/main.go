@@ -8,8 +8,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/u-root/u-root/pkg/acpi"
+	"github.com/u-root/u-root/pkg/boot"
 	"github.com/u-root/u-root/pkg/boot/fit"
 )
 
@@ -40,9 +42,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	f.Cmdline, f.Kernel, f.InitRAMFS, f.Dryrun, f.ConfigOverride = *cmdline, *kernel, *initramfs, *dryRun, *config
+	f.Cmdline, f.Kernel, f.InitRAMFS, f.ConfigOverride = *cmdline, *kernel, *initramfs, *config
 
-	kn, in, err := f.LoadConfig(*debug)
+	kn, in, err := f.LoadConfig()
 	if err == nil {
 		f.Kernel, f.InitRAMFS = kn, in
 	} else {
@@ -65,9 +67,18 @@ func main() {
 		kernelCmd = fmt.Sprintf("acpi_rsdp=%x %s", r.RSDPAddr(), kernelCmd)
 	}
 
-	f.Cmdline, f.Dryrun = kernelCmd, *dryRun
+	f.Cmdline = kernelCmd
 
 	if err := f.Load(*debug); err != nil {
+		log.Fatal(err)
+	}
+
+	if *dryRun {
+		v("Not trying to boot since this is a dry run")
+		os.Exit(0)
+	}
+
+	if err := boot.Execute(); err != nil {
 		log.Fatal(err)
 	}
 }
