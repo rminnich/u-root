@@ -80,7 +80,8 @@ jobs:
       - checkout
       - run:
           name: Race detector
-          command: go test -race ./cmds/... ./pkg/...
+          command: |
+            go test -race ./pkg/...
 
   compile_cmds:
     <<: *golang-template
