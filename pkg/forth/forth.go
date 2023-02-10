@@ -37,7 +37,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -179,17 +178,17 @@ func (f *stack) Empty() bool {
 	return len(f.stack) == 0
 }
 
-// errRecover converts panics to errstr iff it is an os.Error, panics
-// otherwise.
+// errRecover converts panics to errstr.
 func errRecover(errp *error) {
 	e := recover()
 	if e != nil {
-		if _, ok := e.(runtime.Error); ok {
-			Debug("errRecover panics with a runtime error")
-			panic(e)
-		}
 		Debug("errRecover returns %v", e)
-		*errp = e.(error)
+		switch err := e.(type) {
+		case error:
+			*errp = err
+		case []error:
+			*errp = fmt.Errorf("%v", err)
+		}
 	}
 }
 

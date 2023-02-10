@@ -48,6 +48,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 
 	"github.com/u-root/u-root/pkg/forth"
@@ -126,7 +127,7 @@ func cpus(f forth.Forth) {
 	g := f.Pop().(string)
 	c, errs := msr.GlobCPUs(g)
 	if errs != nil {
-		panic(fmt.Sprintf("%v", errs))
+		panic(fmt.Errorf("cpus:%v", errs))
 	}
 	forth.Debug("CPUs are %v", c)
 	f.Push(c)
@@ -135,7 +136,7 @@ func cpus(f forth.Forth) {
 func reg(f forth.Forth) {
 	n, err := strconv.ParseUint(f.Pop().(string), 0, 32)
 	if err != nil {
-		panic(fmt.Sprintf("%v", err))
+		panic(fmt.Errorf("reg:%v", err))
 	}
 	f.Push(msr.MSR(n))
 }
@@ -143,7 +144,7 @@ func reg(f forth.Forth) {
 func u64(f forth.Forth) {
 	n, err := strconv.ParseUint(f.Pop().(string), 0, 64)
 	if err != nil {
-		panic(fmt.Sprintf("%v", err))
+		panic(fmt.Errorf("u64:%v", err))
 	}
 	f.Push(uint64(n))
 }
@@ -155,7 +156,7 @@ func rd(f forth.Forth) {
 	data, errs := r.Read(c)
 	forth.Debug("data %v errs %v", data, errs)
 	if errs != nil {
-		panic(fmt.Sprintf("%v", errs))
+		panic(errs)
 	}
 	f.Push(data)
 }
@@ -177,7 +178,7 @@ func wr(f forth.Forth) {
 	errs := r.Write(c, v...)
 	forth.Debug("errs %v", errs)
 	if errs != nil {
-		f.Push(errs)
+		panic(errs)
 	}
 }
 
@@ -197,7 +198,7 @@ func swr(f forth.Forth) {
 	errs := r.Write(c, v)
 	forth.Debug("errs %v", errs)
 	if errs != nil {
-		f.Push(errs)
+		panic(errs)
 	}
 }
 
@@ -241,12 +242,24 @@ func main() {
 	for _, w := range words {
 		forth.NewWord(f, w.name, w.w[0], w.w[1:]...)
 	}
+
 	a := flag.Args()
+	if len(a) == 0 {
+		log.Fatalf("Usage: msr [OPTIONS] r glob MSR\nmsr [OPTIONS] w glob MSR value\nmsr [OPTIONS] forth-word [forth-word ...]")
+	}
+
+	// Special case: there may be a link to msr from rdmsr and wrmsr. This is determined
+	// by os.Args[0].
+	// adjust the args if this is the case.
+	if os.Args[0] == "rdmsr" || os.Args[0] == "wrmsr" {
+		a = append([]string{os.Args[0]}, a...)
+	}
+
 	// If the first arg is r or w, we're going to assume they're not doing Forth.
 	// It is too confusing otherwise if they type a wrong r or w command and
 	// see the Forth stack and nothing else.
 	switch a[0] {
-	case "r":
+	case "r", "rd", "rdmsr":
 		if len(a) != 3 {
 			log.Fatal("Usage for r: r <msr-glob> <register>")
 		}
@@ -255,7 +268,7 @@ func main() {
 		if err := forth.EvalString(f, fmt.Sprintf("'%s cpu %s reg rd", a[1], a[2])); err != nil {
 			log.Fatal(err)
 		}
-	case "w":
+	case "w", "wr", "msr":
 		if len(a) != 4 {
 			log.Fatal("Usage for w: w <msr-glob> <register> <value>")
 		}
