@@ -638,6 +638,10 @@ var (
 )
 
 func main() {
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
 	flag.Parse()
 
 	dir, err := os.MkdirTemp("", "tiny")
@@ -645,7 +649,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c := exec.Command("./u-root", append([]string{"-tags", "tinygo", "-tmpdir", dir}, strings.Split(*list, ",")...)...)
+	c := exec.Command("./u-root", append([]string{"-tmpdir", dir}, strings.Split(*list, ",")...)...)
+	c.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	c.Stdout, c.Stderr = os.Stdout, os.Stderr
 	if err := c.Run(); err != nil {
 		// An error is expected, for now.
@@ -697,6 +702,7 @@ func main() {
 	// The rewrite step may result in os no longer being needed in some
 	// source. run imports.
 	c = exec.Command("goimports", "-w", ".")
+	c.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	c.Dir = build[0]
 	c.Stdout, c.Stderr = os.Stdout, os.Stderr
 	log.Printf("Now run imports: %v in %q", c, c.Dir)
@@ -704,7 +710,7 @@ func main() {
 		log.Fatalf("Running go: %v, %v", c, err)
 	}
 
-	wb := filepath.Join(c.Dir, "build")
+	wb := filepath.Join(/*c.Dir, */wd, "build")
 	frontend := filepath.Join(wb, "frontend.wasm")
 
 	c = exec.Command("go", "build", "-o", frontend)
@@ -723,6 +729,8 @@ func main() {
 
 	log.Printf("The binary is: %q, info %v", frontend, fi)
 
+	os.Exit(0)
+	// fuck this shit below. fuck git. fuck osx. fuck it all.
 	runner := filepath.Join(wb, "runner.js")
 	if err := os.WriteFile(runner, []byte(wasmjs), 0755); err != nil {
 		log.Fatal(err)
