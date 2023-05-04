@@ -282,17 +282,12 @@ func TestUrootCmdline(t *testing.T) {
 	}
 	var bbTests []testCase
 	for _, test := range bareTests {
-		bbTest := test
-		bbTest.name = bbTest.name + " gbb-gopath"
-		bbTest.args = append([]string{"-build=gbb"}, bbTest.args...)
-		bbTest.env = append(bbTest.env, "GO111MODULE=off")
-
 		gbbTest := test
 		gbbTest.name = gbbTest.name + " gbb-gomodule"
 		gbbTest.args = append([]string{"-build=gbb"}, gbbTest.args...)
 		gbbTest.env = append(gbbTest.env, "GO111MODULE=on")
 
-		bbTests = append(bbTests, gbbTest, bbTest)
+		bbTests = append(bbTests, gbbTest)
 	}
 
 	for _, tt := range append(noCmdTests, bbTests...) {
