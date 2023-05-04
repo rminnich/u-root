@@ -297,6 +297,7 @@ func TestUrootCmdline(t *testing.T) {
 
 	for _, tt := range append(noCmdTests, bbTests...) {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			delFiles := true
 			f, sum1 := buildIt(t, tt.args, tt.env, tt.err)
 			defer func() {
