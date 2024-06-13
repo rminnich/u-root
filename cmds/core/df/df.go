@@ -194,7 +194,7 @@ func df(w io.Writer, fargs flags, args []string) error {
 	for _, arg := range args {
 		fileDev, err := deviceNumber(arg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "df: %v\n", err)
+			log.Printf("df: %v\n", err)
 			continue
 		}
 
@@ -205,7 +205,7 @@ func df(w io.Writer, fargs flags, args []string) error {
 	for _, mnt := range mounts {
 		stDev, err := deviceNumber(mnt.MountPoint)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "df: %v\n", err)
+			log.Printf("df: %v\n", err)
 			continue
 		}
 

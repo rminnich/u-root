@@ -9,11 +9,14 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io"
+	"log"
 	"os"
 	"testing"
 )
 
 func TestRunDF(t *testing.T) {
+	log.SetOutput(io.Discard)
 	for _, tt := range []struct {
 		name    string
 		args    []string
