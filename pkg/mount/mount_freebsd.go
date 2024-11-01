@@ -8,8 +8,12 @@ package mount
 import (
 	"errors"
 	"fmt"
+	"log"
+	"net/netip"
 	"os"
 	"runtime"
+	"strconv"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -101,17 +105,64 @@ func Mount(dev, path, fsType, data string, flags uintptr, opts ...func() error) 
 		vec = append(vec, iov("from"), iov(dev))
 	}
 
+	// freebsd will not let you pass the port as an option.
+	// You have to assemble the address yourself.
+	// This is just a tad annoying.
+	if fsType == "nfs" {
+		var newdata []string
+		for _, o := range strings.Split(data, ",") {
+			kv := strings.Split(o, "=")
+			if len(kv) != 2 {
+				newdata = append(newdata, o)
+				continue
+			}
+			switch kv[0] {
+			case "port":
+				port, err := strconv.ParseUint(kv[1], 0, 16)
+				if err != nil {
+					return nil, err
+				}
+				host := strings.Split(dev, ":")
+				if len(host) != 2 {
+					return nil, fmt.Errorf("%q for nfs: needs to be in host:path form:%w", host, os.ErrInvalid)
+				}
+				addr, err := netip.ParseAddr(host[0])
+				if err != nil {
+					return nil, err
+				}
+				addrport := netip.AddrPortFrom(addr, uint16(port))
+				if err != nil {
+					return nil, err
+				}
+				b, err := addrport.MarshalBinary()
+				if err != nil {
+					return nil, err
+				}
+				// Finally ... add it to the iovec
+				v := syscall.Iovec{Base: (*byte)(unsafe.Pointer(&b[0]))}
+				v.SetLen(len(b))
+				vec = append(vec, v)
+			default:
+				newdata = append(newdata, o)
+			}
+		}
+
+		data = strings.Join(newdata, ",")
+	}
 	// Convert the slice of iovec to a pointer
 	iovPtr := unsafe.Pointer(&vec[0])
 
 	// Call nmount
+	log.Printf("before")
 	if _, _, errno := syscall.Syscall(syscall.SYS_NMOUNT, uintptr(iovPtr), uintptr(len(vec)), flags); errno != 0 {
+		log.Printf("after err")
 		return nil, &os.PathError{
 			Op:   "mount",
 			Path: path,
 			Err:  fmt.Errorf("from device %q (fs type %s, flags %#x): %w", dev, fsType, flags, errno),
 		}
 	}
+	log.Printf("after ok")
 	return &MountPoint{
 		Path:   path,
 		Device: dev,
