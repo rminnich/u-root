@@ -22,7 +22,7 @@ require (
 	github.com/insomniacslk/dhcp v0.0.0-20231206064809-8c70d406f6d2
 	github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2
 	github.com/kevinburke/ssh_config v1.1.0
-	github.com/klauspost/compress v1.17.4
+	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/pgzip v1.2.6
 	github.com/knz/bubbline v0.0.0-20230717192058-486954f9953f
 	github.com/mdlayher/vsock v1.2.1
@@ -34,7 +34,7 @@ require (
 	github.com/rck/unit v0.0.3
 	github.com/rekby/gpt v0.0.0-20200219180433-a930afbc6edc
 	github.com/safchain/ethtool v0.0.0-20200218184317-f459e2d13664
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/tklauser/go-sysconf v0.3.14
 	github.com/u-root/iscsinl v0.1.1-0.20210528121423-84c32645822a
 	github.com/u-root/mkuimage v0.0.0-20250320091346-62f0448bbe27
@@ -43,19 +43,20 @@ require (
 	github.com/vishvananda/netlink v1.3.0
 	github.com/vishvananda/netns v0.0.4
 	github.com/vtolstov/go-ioctl v0.0.0-20151206205506-6be9cced4810
-	golang.org/x/crypto v0.36.0
+	golang.org/x/crypto v0.38.0
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
-	golang.org/x/net v0.38.0
-	golang.org/x/sys v0.31.0
-	golang.org/x/term v0.30.0
-	golang.org/x/text v0.23.0
-	golang.org/x/tools v0.31.0
+	golang.org/x/net v0.40.0
+	golang.org/x/sys v0.33.0
+	golang.org/x/term v0.32.0
+	golang.org/x/text v0.25.0
+	golang.org/x/tools v0.33.0
 	gopkg.in/yaml.v2 v2.4.0
 	mvdan.cc/sh/v3 v3.11.0
 	pack.ag/tftp v1.0.1-0.20181129014014-07909dfbde3c
 )
 
 require (
+	github.com/google/go-containerregistry v0.20.5
 	github.com/jaypipes/ghw v0.12.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/u-root/cpuid v0.0.1-0.20250320140348-cc5fe81d966c
@@ -65,12 +66,19 @@ require (
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
+	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/creack/goselect v0.1.2 // indirect
+	github.com/docker/cli v28.1.1+incompatible // indirect
+	github.com/docker/distribution v2.8.3+incompatible // indirect
+	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/jaypipes/pcidb v1.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/vbatts/tar-split v0.12.1 // indirect
 	howett.net/plist v1.0.0 // indirect
 )
 
@@ -105,7 +113,7 @@ require (
 	github.com/tklauser/numcpus v0.8.0 // indirect
 	golang.org/x/arch v0.2.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.14.0
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

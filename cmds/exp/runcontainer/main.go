@@ -19,8 +19,10 @@
 package main
 
 import (
+	"archive/tar"
 	"errors"
 	"flag"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -31,30 +33,57 @@ import (
 var ErrUsage = errors.New("usage")
 
 type cmd struct {
-	p    params
+	p     params
+	where string
 	image string
 	argv0 string
-	args []string
+	args  []string
 }
 
 type params struct {
 	verbose bool
 }
 
+// SafeFilter filters out all files which are not regular, symlinks,  and not directories.
+// It also sets appropriate permissions.
+func SafeFilter(hdr *tar.Header) bool {
+	if hdr.Typeflag == tar.TypeDir {
+		hdr.Mode = 0o770
+		return true
+	}
+	if hdr.Typeflag == tar.TypeReg {
+		hdr.Mode = 0o660
+		return true
+	}
+	if hdr.Typeflag == tar.TypeLink {
+		hdr.Mode = 0o660
+		return true
+	}
+	if hdr.Typeflag == tar.TypeSymlink {
+		hdr.Mode = 0o777
+		return true
+	}
+	return false
+}
 func command(p params, args []string) (*cmd, error) {
 	if len(args) < 2 {
 		return nil, ErrUsage
 	}
+	d, err := ioutil.TempDir("", "runcontainer")
+	if err != nil {
+		return nil, err
+	}
 	return &cmd{
-		p:    p,
+		p:     p,
+		where: d,
 		image: args[0],
 		argv0: args[1],
-		args: args[2:],
+		args:  args[2:],
 	}, nil
 }
 
 func (c *cmd) run() error {
-	opts := &tarutil.Opts{}
+	opts := &tarutil.Opts{Filters: []tarutil.Filter{SafeFilter}}
 	if c.p.verbose {
 		opts.Filters = append(opts.Filters, tarutil.VerboseFilter)
 	}
@@ -64,7 +93,7 @@ func (c *cmd) run() error {
 		return err
 	}
 	defer f.Close()
-	if err := tarutil.ExtractDir(f, c.args[0], opts); err != nil {
+	if err := tarutil.ExtractDir(f, c.image, opts); err != nil {
 		return err
 	}
 	return nil
