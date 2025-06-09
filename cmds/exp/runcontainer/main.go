@@ -2,29 +2,20 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Create and extract tar archives.
+// extract a tar file, to a tempdir, and run a command in it with args.
 //
 // Synopsis:
 //
-//	tar [OPTION...] [FILE]...
+//	runcontainer [OPTION...] image command [args]
 //
 // Description:
 //
-//	This command line can be used only in the following ways:
-//	   tar -cvf x.tar directory/         # create
-//	   tar -cvf x.tar file1 file2 ...    # create
-//	   tar -tvf x.tar                    # list
-//	   tar -xvf x.tar directory/         # extract
+//	This command extracts a tar file to a directory, and runs
+//	a command with args chroot'ed in that directory.
 //
 // Options:
 //
-//	-c: create a new tar archive from the given directory
-//	-x: extract a tar archive to the given directory
-//	-v: verbose, print each filename (optional)
-//	-f: tar filename (required)
-//	-t: list the contents of an archive
-//
-// TODO: The arguments deviates slightly from gnu tar.
+//	-v: verbose
 package main
 
 import (
@@ -43,43 +34,10 @@ type cmd struct {
 }
 
 type params struct {
-	file        string
-	create      bool
-	extract     bool
-	list        bool
-	noRecursion bool
-	verbose     bool
+	verbose bool
 }
 
-var (
-	errCreateAndExtract     = fmt.Errorf("cannot supply both -c and -x")
-	errCreateAndList        = fmt.Errorf("cannot supply both -c and -t")
-	errExtractAndList       = fmt.Errorf("cannot supply both -x and -t")
-	errEmptyFile            = fmt.Errorf("file is required")
-	errMissingMandatoryFlag = fmt.Errorf("must supply at least one of: -c, -x, -t")
-	errExtractArgsLen       = fmt.Errorf("args length should be 1")
-)
-
 func command(p params, args []string) (*cmd, error) {
-	if p.create && p.extract {
-		return nil, errCreateAndExtract
-	}
-	if p.create && p.list {
-		return nil, errCreateAndList
-	}
-	if p.extract && p.list {
-		return nil, errExtractAndList
-	}
-	if p.extract && len(args) != 1 {
-		return nil, errExtractArgsLen
-	}
-	if !p.extract && !p.create && !p.list {
-		return nil, errMissingMandatoryFlag
-	}
-	if p.file == "" {
-		return nil, errEmptyFile
-	}
-
 	return &cmd{
 		p:    p,
 		args: args,
@@ -87,79 +45,32 @@ func command(p params, args []string) (*cmd, error) {
 }
 
 func (c *cmd) run() error {
-	opts := &tarutil.Opts{
-		NoRecursion: c.p.noRecursion,
-	}
+	opts := &tarutil.Opts{}
 	if c.p.verbose {
 		opts.Filters = []tarutil.Filter{tarutil.VerboseFilter}
 	}
 
-	switch {
-	case c.p.create:
-		f, err := os.Create(c.p.file)
-		if err != nil {
-			return err
-		}
-		if err := tarutil.CreateTar(f, c.args, opts); err != nil {
-			f.Close()
-			return err
-		}
-		if err := f.Close(); err != nil {
-			return err
-		}
-	case c.p.extract:
-		f, err := os.Open(c.p.file)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if err := tarutil.ExtractDir(f, c.args[0], opts); err != nil {
-			return err
-		}
-	case c.p.list:
-		f, err := os.Open(c.p.file)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if err := tarutil.ListArchive(f); err != nil {
-			return err
-		}
+	f, err := os.Open(c.p.file)
+	if err != nil {
+		return err
 	}
-
+	defer f.Close()
+	if err := tarutil.ExtractDir(f, c.args[0], opts); err != nil {
+		return err
+	}
 	return nil
 }
 
 func main() {
 	var (
-		create      bool
-		extract     bool
-		file        string
-		list        bool
-		noRecursion bool
-		verbose     bool
+		verbose bool
 	)
 	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-	f.BoolVar(&create, "create", false, "create a new tar archive from the given directory")
-	f.BoolVar(&create, "c", false, "create a new tar archive from the given directory (shorthand)")
-
-	f.BoolVar(&extract, "extract", false, "extract a tar archive from the given directory")
-	f.BoolVar(&extract, "x", false, "extract a tar archive from the given directory (shorthand)")
-
-	f.StringVar(&file, "file", "", "tar file")
-	f.StringVar(&file, "f", "", "tar file (shorthand)")
-
-	f.BoolVar(&list, "list", false, "list the contents of an archive")
-	f.BoolVar(&list, "t", false, "list the contents of an archive (shorthand)")
-
-	f.BoolVar(&noRecursion, "no-recursion", false, "do not automatically recurse into directories")
-
-	f.BoolVar(&verbose, "verbose", false, "print each filename")
-	f.BoolVar(&verbose, "v", false, "print each filename (shorthand)")
+	f.BoolVar(&verbose, "v", false, "print each filename")
 
 	f.Parse(unixflag.OSArgsToGoArgs())
-	cmd, err := command(params{file: file, create: create, extract: extract, list: list, noRecursion: noRecursion, verbose: verbose}, f.Args())
+	cmd, err := command(params{verbose: verbose}, f.Args())
 	if err != nil {
 		f.Usage()
 		log.Fatal(err)
