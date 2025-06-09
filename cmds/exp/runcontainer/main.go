@@ -19,8 +19,8 @@
 package main
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -28,8 +28,12 @@ import (
 	"github.com/u-root/u-root/pkg/uroot/unixflag"
 )
 
+var ErrUsage = errors.New("usage")
+
 type cmd struct {
 	p    params
+	image string
+	argv0 string
 	args []string
 }
 
@@ -38,19 +42,24 @@ type params struct {
 }
 
 func command(p params, args []string) (*cmd, error) {
+	if len(args) < 2 {
+		return nil, ErrUsage
+	}
 	return &cmd{
 		p:    p,
-		args: args,
+		image: args[0],
+		argv0: args[1],
+		args: args[2:],
 	}, nil
 }
 
 func (c *cmd) run() error {
 	opts := &tarutil.Opts{}
 	if c.p.verbose {
-		opts.Filters = []tarutil.Filter{tarutil.VerboseFilter}
+		opts.Filters = append(opts.Filters, tarutil.VerboseFilter)
 	}
 
-	f, err := os.Open(c.p.file)
+	f, err := os.Open(c.image)
 	if err != nil {
 		return err
 	}
