@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/knz/bubbline"
 	"github.com/knz/bubbline/complete"
 	"github.com/knz/bubbline/computil"
 	"github.com/knz/bubbline/editline"
@@ -80,51 +79,37 @@ func autocompleteBubb(val [][]rune, line, col int) (msg string, completions edit
 }
 
 func runInteractive(runner *interp.Runner, parser *syntax.Parser, stdout, stderr io.Writer) error {
-	input := bubbline.New()
-	// Set default window size to 80x24 in case ioctl isn't able to detect the actual window size
-	input.Model.SetSize(80, 24)
-
-	if err := input.LoadHistory(HistFile); err != nil {
-		return err
+	var hist io.Writer
+	if f, err := os.OpenFile(HistFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600); err == nil {
+		defer f.Close()
+		hist = f
 	}
+	_ = completion // completion is unsupported in minimal mode.
 
-	input.SetAutoSaveHistory(HistFile, true)
-
-	if *completion {
-		input.AutoComplete = autocompleteBubb
-	}
-
-	var runErr error
-
-	// The following code is used to intercept SIGINT signals.
-	// Calling signal.Ignore wouldn't work as child prcesses inherit this trait.
-	// We only want to catch SIGINTs that are propagated from a child,
-	// the child itself should get the signal as per usual.
+	// Ignore SIGINT in the shell itself; foreground child processes still receive it.
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt)
+	defer signal.Stop(ch)
 	go func(ch chan os.Signal) {
-		for {
-			<-ch
+		for range ch {
 		}
 	}(ch)
 
+	var runErr error
 	for {
 		if runErr != nil {
 			fmt.Fprintf(stdout, "error: %s\n", runErr.Error())
 			runErr = nil
 		}
 
-		line, err := input.GetLine()
+		line, err := readMinimalLine(os.Stdin, stdout, "> ", parser, *completion)
 		if err != nil {
-			if err == io.EOF {
-				break // maybe we should continue instead of break
+			if errors.Is(err, io.EOF) {
+				break
 			}
-			if errors.Is(err, bubbline.ErrInterrupted) {
-				fmt.Fprintf(stdout, "^C\n")
-			} else {
+			if !errors.Is(err, errPromptAborted) {
 				fmt.Fprintf(stderr, "error: %s\n", err.Error())
 			}
-			err = nil
 			continue
 		}
 
@@ -132,17 +117,14 @@ func runInteractive(runner *interp.Runner, parser *syntax.Parser, stdout, stderr
 		case "exit":
 			goto exit
 		case "disablecomp":
-			input.AutoComplete = nil
-			continue
 		case "enablecomp":
-			input.AutoComplete = autocompleteBubb
 			continue
 		default:
 		}
 
 		if line != "" {
-			if err := input.AddHistory(line); err != nil {
-				fmt.Fprintf(stdout, "unable to add %s to history: %v\n", line, err)
+			if hist != nil {
+				fmt.Fprintf(hist, "%s\n", line)
 			}
 		}
 

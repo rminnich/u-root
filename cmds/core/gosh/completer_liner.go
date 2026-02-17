@@ -12,12 +12,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
-	"github.com/peterh/liner"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
 )
@@ -29,23 +28,20 @@ var HistFile = filepath.Join(os.TempDir(), "gosh.history")
 var completion = flag.Bool("comp", true, "Enable tabcompletion and a more feature rich editline implementation")
 
 func runInteractive(runner *interp.Runner, parser *syntax.Parser, stdout, stderr io.Writer) error {
-	input := liner.NewLiner()
-	defer input.Close()
-
-	f, err := os.OpenFile(HistFile, os.O_RDWR|os.O_CREATE, 0)
-	if err == nil {
-		input.ReadHistory(f)
-	} else if f, err = os.Open(HistFile); err != nil {
-		log.Printf("Failed to open or create history file: %v", err)
-	}
-	if f != nil {
+	var hist io.Writer
+	if f, err := os.OpenFile(HistFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600); err == nil {
 		defer f.Close()
+		hist = f
 	}
-
-	input.SetCtrlCAborts(true)
-	if *completion {
-		input.SetCompleter(autocompleteLiner(parser))
-	}
+	_ = completion // completion is unsupported in minimal mode.
+	// Ignore SIGINT in the shell itself; foreground child processes still receive it.
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	defer signal.Stop(ch)
+	go func(ch chan os.Signal) {
+		for range ch {
+		}
+	}(ch)
 
 	var runErr error
 	for {
@@ -54,17 +50,14 @@ func runInteractive(runner *interp.Runner, parser *syntax.Parser, stdout, stderr
 			runErr = nil
 		}
 
-		line, err := input.Prompt("$ ")
+		line, err := readMinimalLine(os.Stdin, stdout, "$ ", parser, *completion)
 		if err != nil {
-			if err == io.EOF {
-				break // maybe we should continue instead of break
+			if errors.Is(err, io.EOF) {
+				break
 			}
-			if errors.Is(err, liner.ErrPromptAborted) {
-				fmt.Fprintf(stdout, "^C\n")
-			} else {
+			if !errors.Is(err, errPromptAborted) {
 				fmt.Fprintf(stderr, "error: %s\n", err.Error())
 			}
-			err = nil
 			continue
 		}
 
@@ -72,18 +65,14 @@ func runInteractive(runner *interp.Runner, parser *syntax.Parser, stdout, stderr
 		case "exit":
 			goto exit
 		case "disablecomp":
-			input.SetCompleter(nil)
-			continue
 		case "enablecomp":
-			input.SetCompleter(autocompleteLiner(parser))
 			continue
 		default:
 		}
 
 		if line != "" {
-			input.AppendHistory(line)
-			if f != nil {
-				input.WriteHistory(f)
+			if hist != nil {
+				fmt.Fprintf(hist, "%s\n", line)
 			}
 		}
 		if err := parser.Stmts(strings.NewReader(line), func(stmt *syntax.Stmt) bool {

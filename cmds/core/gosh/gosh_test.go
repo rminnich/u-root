@@ -408,6 +408,65 @@ func TestInteractiveBubbline(t *testing.T) {
 	}
 }
 
+func TestInteractiveBubblineTabCompletionMinimal(t *testing.T) {
+	dir := t.TempDir()
+	execPath := filepath.Join(dir, "gosh")
+
+	var opts *golang.BuildOpts
+	// Setting -cover without GOCOVERDIR adds extra warning output, which changes the result of the test.
+	if os.Getenv("GOCOVERDIR") != "" {
+		opts = &golang.BuildOpts{ExtraArgs: []string{"-covermode=atomic"}}
+	}
+	if err := golang.Default(golang.DisableCGO()).BuildDir("", execPath, opts); err != nil {
+		t.Fatal(err)
+	}
+
+	// A unique executable in cwd so ./tes<Tab> resolves deterministically.
+	testrun := filepath.Join(dir, "testrun")
+	if err := os.WriteFile(testrun, []byte("#!/bin/sh\necho DONE\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var transcript bytes.Buffer
+	con, err := expect.NewTestConsole(t, expect.WithDefaultTimeout(2*time.Second), expect.WithStdout(&transcript))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), execPath)
+	cmd.Dir = dir
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = con.Tty(), con.Tty(), con.Tty()
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	// Close our end of child's tty.
+	con.Tty().Close()
+
+	actions := []consoleAction{
+		expectString("> "),
+		send("./tes\t\x0D"),
+		expectString("DONE"),
+		expectString("> "),
+		send("exit\x0D"),
+	}
+	for i, a := range actions {
+		if err := a(con); err != nil {
+			t.Fatalf("Action %d: %v", i, err)
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	if err := con.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(transcript.String(), "\x1b") {
+		t.Fatalf("unexpected ANSI escape sequence in transcript: %q", transcript.String())
+	}
+}
+
 func TestInteractiveLiner(t *testing.T) {
 	dir := t.TempDir()
 	execPath := filepath.Join(dir, "gosh")
