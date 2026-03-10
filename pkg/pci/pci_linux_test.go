@@ -13,7 +13,7 @@ import (
 	"github.com/hugelgupf/vmtest/guest"
 )
 
-func TestNewBusReaderNoGlob(t *testing.T) {
+func TestPCINewBusReaderNoGlob(t *testing.T) {
 	guest.SkipIfNotInVM(t)
 
 	n, err := NewBusReader()
@@ -35,7 +35,7 @@ func TestNewBusReaderNoGlob(t *testing.T) {
 	}
 }
 
-func TestBusReader(t *testing.T) {
+func TestPCIReader(t *testing.T) {
 	guest.SkipIfNotInVM(t)
 
 	n, err := NewBusReader()
@@ -87,7 +87,7 @@ func TestBusReader(t *testing.T) {
 	}
 }
 
-func TestBusReadConfig(t *testing.T) {
+func TestPCIReadConfig(t *testing.T) {
 	guest.SkipIfNotInVM(t)
 
 	var fullread bool

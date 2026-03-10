@@ -19,10 +19,6 @@ const (
 	pciPath = "/sys/bus/pci/devices"
 )
 
-type bus struct {
-	Devices []string
-}
-
 func readString(dir, file string) (string, error) {
 	s, err := os.ReadFile(filepath.Join(dir, file))
 	if err != nil {

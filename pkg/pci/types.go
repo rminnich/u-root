@@ -4,6 +4,13 @@
 
 package pci
 
+// bus is an internal type. Plan 9 and Linux deliver
+// pci bus information as strings. But other kernels
+// may not, so we don't export it.
+type bus struct {
+	Devices []string
+}
+
 // Filter can be used to filter a device
 type Filter func(p *PCI) bool
 
